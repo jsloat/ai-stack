@@ -1,0 +1,16 @@
+# Copy this file to config.local.yaml and fill in values for your environment.
+# Keep config.local.yaml untracked.
+
+defaultHarness: copilot
+
+models:
+  planner: sonnet
+  implementer: gpt-5.5
+  cheapVerifier: gpt-5.5-mini
+
+skills:
+  indexes:
+    - local/default
+
+telemetry:
+  enabled: true
