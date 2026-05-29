@@ -64,7 +64,7 @@ The config model should stay conservative:
 
 - configure behavior, not repo-owned structure
 - keep directory layout hardcoded until relocation is an actual requirement
-- prefer local skill-index curation before inventing shared index taxonomy
+- prefer convention-based local skill-index curation before inventing shared index taxonomy or config hooks
 
 The initialization should also lock in one important naming decision early:
 

@@ -110,3 +110,7 @@ The repository now includes the first structural pass for:
 At this stage these directories mainly establish boundaries and naming. Most still need executable contracts.
 
 For `skill-indexes/`, the currently justified use case is local-only curation: private or global skill references that a user wants this repo to know about. Shared committed indexes should be added only if the repo later needs curated bundles of repo-owned skills.
+
+The current intended model is one conventional local index file that points to multiple external or local-only skills. If that file exists, future tooling can incorporate it. If it does not exist, the repo should proceed without error.
+
+There is currently a standardized example artifact at `skill-indexes/local/skill-index.example.md`, but the exact runtime index contract is still intentionally narrow and may be refined in a dedicated skill-index feature doc.
