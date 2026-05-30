@@ -66,6 +66,9 @@ Key design docs:
 - `docs/features/20260529-skill-packaging.md`
 - `docs/features/20260529-skill-index-contract.md`
 - `docs/features/20260529-eventual-repo-split.md`
+- `docs/features/20260529-adapter-contract.md`
+
+Completed implementation docs move to `docs/features/done/` so the top-level `docs/features/` directory stays focused on active work.
 
 ## Design Principles
 
@@ -84,6 +87,8 @@ python3 bin/ai-stack resolve-skill <skill-name>
 ```
 
 That slice proves optional local config discovery, local skill-index discovery, deterministic skill resolution, and structured load tracing. The broader orchestration platform is still in the early implementation phase.
+
+The runtime also now routes that resolved skill through a dry-run adapter boundary for `codex` and `copilot`, returning normalized adapter trace output without attempting live harness execution yet.
 
 ## Agent Guidance
 

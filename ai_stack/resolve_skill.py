@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ai_stack.adapters import run_adapter_dry_mode, run_adapter_live
+
 
 DEFAULT_CONFIG = {
     "defaultHarness": "copilot",
@@ -142,6 +144,17 @@ def resolve_skill(root: Path, skill_name: str) -> Dict[str, Any]:
             match = row
             break
 
+    resolution = {
+        "requestedSkill": skill_name,
+        "matched": match is not None,
+        "sourceRepo": None if match is None else match["sourceRepo"],
+        "skillPath": None if match is None else match["skillPath"],
+    }
+    adapter = run_adapter_dry_mode(
+        config["effective"]["defaultHarness"],
+        resolution,
+    )
+
     return {
         "config": config,
         "skillIndex": {
@@ -150,12 +163,8 @@ def resolve_skill(root: Path, skill_name: str) -> Dict[str, Any]:
             "parsed": skill_index["parsed"],
             "rowCount": skill_index["rowCount"],
         },
-        "resolution": {
-            "requestedSkill": skill_name,
-            "matched": match is not None,
-            "sourceRepo": None if match is None else match["sourceRepo"],
-            "skillPath": None if match is None else match["skillPath"],
-        },
+        "resolution": resolution,
+        "adapter": adapter,
     }
 
 
@@ -164,6 +173,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     resolve_parser = subparsers.add_parser("resolve-skill")
     resolve_parser.add_argument("skill")
+    adapter_parser = subparsers.add_parser("adapter")
+    adapter_parser.add_argument("harness")
+    adapter_parser.add_argument("--prompt", required=True)
 
     args = parser.parse_args(argv)
 
@@ -171,6 +183,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         trace = resolve_skill(Path.cwd(), args.skill)
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["resolution"]["matched"] else 1
+    if args.command == "adapter":
+        trace = {
+            "adapter": run_adapter_live(args.harness, args.prompt),
+        }
+        print(json.dumps(trace, indent=2, sort_keys=True))
+        return 0 if trace["adapter"]["status"] == "completed" else 1
 
     parser.error("Unsupported command")
     return 2

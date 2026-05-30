@@ -2,6 +2,8 @@
 
 `docs/features/` holds the tracked design and delivery documents for this project. These files are expected to survive longer than chat history and should be detailed enough to drive implementation work without reconstructing intent from memory.
 
+Use `docs/features/` for active backlog and ongoing design work. Use `docs/features/done/` for completed feature docs that still matter as reference material.
+
 ## What Belongs Here
 
 Create a feature doc when work has any of the following:
@@ -97,6 +99,8 @@ Checklists should be:
 - possible to mark complete with evidence
 
 Unchecked items are active backlog, not passive documentation. Future sessions should look for incomplete checklist items before deciding what to work on next or before claiming a feature area is done.
+
+When a feature doc is substantially complete and no longer the primary place to look for unfinished work, move it to `docs/features/done/` instead of leaving it mixed into the active backlog.
 
 ## Repository Impact Section
 
