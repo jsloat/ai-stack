@@ -60,6 +60,13 @@ Start here:
 - `docs/features/README.md`
 - `docs/features/20260529-project-initialization.md`
 
+Key design docs:
+
+- `docs/features/20260529-configuration-contract.md`
+- `docs/features/20260529-skill-packaging.md`
+- `docs/features/20260529-skill-index-contract.md`
+- `docs/features/20260529-eventual-repo-split.md`
+
 ## Design Principles
 
 - Prefer harness-native mechanisms such as `AGENTS.md`, instructions files, and skills over custom prompt glue.
@@ -115,4 +122,11 @@ For `skill-indexes/`, the currently justified use case is local-only curation: p
 
 The current intended model is one conventional local index file that points to multiple external or local-only skills. If that file exists, future tooling can incorporate it. If it does not exist, the repo should proceed without error.
 
-There is currently a standardized example artifact at `skill-indexes/local/skill-index.example.md`, but the exact runtime index contract is still intentionally narrow and may be refined in a dedicated skill-index feature doc.
+From the core-vs-conventions perspective, current directories should be read roughly as:
+
+- `adapters/`, `bin/`, `dashboard/`, `telemetry/`, and `tests/` trend toward core engine concerns
+- `docs/`, `.github/`, and `templates/` trend toward repo conventions
+- `model-benchmarks/` trends toward content
+- `skills/`, `skill-indexes/`, `agents/`, and `memory/` are mixed or still boundary-sensitive and should be treated carefully
+
+There is currently a standardized example artifact at `skill-indexes/local/skill-index.example.md`, aligned with the current skill-index contract.

@@ -208,9 +208,9 @@ Outputs:
 
 Checklist:
 
-- [ ] Update `skill-indexes/local/skill-index.example.md` to include a realistic example registry table.
-- [ ] Distinguish portable registry structure from local-only operational guidance in the example.
-- [ ] Update `skill-indexes/README.md` to reflect the new contract.
+- [x] Update `skill-indexes/local/skill-index.example.md` to include a realistic example registry table.
+- [x] Distinguish portable registry structure from local-only operational guidance in the example.
+- [x] Update `skill-indexes/README.md` to reflect the new contract.
 
 Exit Criteria:
 The example file demonstrates the contract instead of just referencing it abstractly.

@@ -10,7 +10,7 @@ Current expected use case:
 
 Current example artifact:
 
-- `local/skill-index.example.md` establishes the example filename and a placeholder markdown shape
+- `local/skill-index.example.md` demonstrates the current contract with optional frontmatter, optional operational guidance, and a required registry table
 
 Discovery should be by convention, not config:
 

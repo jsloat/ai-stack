@@ -145,6 +145,37 @@ It should influence how current directories are interpreted:
 - `docs/features/`, example configs, example indexes, example skills trend toward convention/content
 - `skills/shared/` may eventually contain both reusable core-adjacent examples and optional content packs, so authors should stay explicit about which one a skill is
 
+### Current Directory Classification
+
+The current top-level scaffold should be interpreted like this:
+
+| Directory | Classification | Notes |
+|-----------|----------------|-------|
+| `.github/` | convention | Repo-operating guidance for Copilot compatibility, not core engine runtime |
+| `adapters/` | core | Harness integration boundary and likely runtime code |
+| `agents/` | mixed | Could hold engine-relevant subagent artifacts or repo-specific content; needs tighter definition before implementation |
+| `bin/` | core | Likely CLI/runtime entrypoints once executable behavior exists |
+| `dashboard/` | core | Planned execution/TUI surface for orchestration observability |
+| `docs/` | convention | Durable design, planning, and repo-operating guidance rather than engine runtime |
+| `memory/` | mixed | Could become engine state/data or remain content/policy depending on implementation choices |
+| `model-benchmarks/` | content | Useful evaluation content, not required for basic engine operation |
+| `skill-indexes/` | convention | Repo-local/operator guidance layer that the engine may consume by contract, but not required for engine existence |
+| `skills/` | mixed | Skill packaging contract is engine-relevant, but actual skill bodies are largely content |
+| `telemetry/` | core | Runtime observability and execution data are part of the engine |
+| `templates/` | convention | Helpful defaults and scaffolds, not required for engine operation |
+| `tests/` | core | Engine contract validation and runtime behavior checks |
+
+### Current Ambiguities
+
+The current scaffold has a few intentionally unresolved areas:
+
+- `agents/` is still underdefined and could drift into either runtime machinery or repo-specific content.
+- `memory/` may become a core runtime subsystem or remain mostly a convention/content concern depending on how durable facts are actually stored and consumed.
+- `skills/` is mixed by nature: the package contract belongs close to core, while most concrete skills are optional content.
+- `skill-indexes/` is also mixed at the boundary: the loader contract is engine-relevant, but the actual local registry file is convention/content.
+
+These directories should receive extra scrutiny before they accumulate executable behavior.
+
 ## Phases
 
 ### Phase 1: Boundary Definition
@@ -180,9 +211,9 @@ Outputs:
 
 Checklist:
 
-- [ ] Classify each current top-level directory as core, convention, content, or mixed.
-- [ ] Identify any directories whose purpose is still too ambiguous.
-- [ ] Update README or directory READMEs where classification needs to be visible.
+- [x] Classify each current top-level directory as core, convention, content, or mixed.
+- [x] Identify any directories whose purpose is still too ambiguous.
+- [x] Update README or directory READMEs where classification needs to be visible.
 
 Exit Criteria:
 The current repo layout is understandable through the split lens.
