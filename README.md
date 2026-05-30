@@ -77,7 +77,13 @@ Key design docs:
 
 ## Current Status
 
-There is not yet a runnable implementation in this repository. The repo currently defines the intended operating model and initial project structure so later code can follow a stable contract.
+The repository now has one narrow runnable slice:
+
+```bash
+python3 bin/ai-stack resolve-skill <skill-name>
+```
+
+That slice proves optional local config discovery, local skill-index discovery, deterministic skill resolution, and structured load tracing. The broader orchestration platform is still in the early implementation phase.
 
 ## Agent Guidance
 

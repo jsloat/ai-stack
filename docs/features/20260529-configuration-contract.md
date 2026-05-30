@@ -181,8 +181,8 @@ Outputs:
 
 Checklist:
 
-- [ ] Decide whether runtime reads `config.example.yaml` or uses hardcoded defaults plus `config.local.yaml`.
-- [ ] Define what happens when `config.local.yaml` is missing.
+- [x] Decide whether runtime reads `config.example.yaml` or uses hardcoded defaults plus `config.local.yaml`.
+- [x] Define what happens when `config.local.yaml` is missing.
 - [ ] Define behavior for unknown keys.
 - [ ] Define validation behavior for missing required values or malformed schema.
 
@@ -221,7 +221,6 @@ The first executable slice can consume config without forcing a schema redesign.
 
 ## Open Questions
 
-- Should runtime load `config.example.yaml` directly, or should it be treated strictly as a human template?
 - Should environment variables exist in the first implementation, or should they wait until there is a proven need?
 - Should runtime eventually look for a concrete non-example local skill-index file alongside `skill-index.example.md`?
 - At what point would configurable external skill directories become justified?
