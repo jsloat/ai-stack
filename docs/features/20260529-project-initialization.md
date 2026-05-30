@@ -214,6 +214,7 @@ The repo has a minimal executable path that confirms the initialization docs wer
 - A future agent session can determine where to add new guidance without introducing redundant instruction files.
 - A new user can discover a committed config template and create an untracked local config from it.
 - The docs do not imply configurable repo-owned paths or shared skill-index structures without a concrete use case.
+- Future sessions are cued by incomplete phases, unchecked items, and open questions in feature docs rather than treating them as static notes.
 
 ## Open Questions
 

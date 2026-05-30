@@ -10,6 +10,7 @@ When working in this repository:
 - read `docs/features/README.md` for the feature-doc contract
 - read the relevant file in `docs/features/` before making architectural or structural changes
 - treat feature docs as the design source of truth when implementation does not yet exist
+- check for incomplete phases, unchecked items, and open questions in relevant feature docs before declaring work complete or starting adjacent design work
 - update docs when you change architecture, conventions, or intended repo structure
 - keep committed content shareable; do not introduce private machine details, absolute local paths, or secrets
 

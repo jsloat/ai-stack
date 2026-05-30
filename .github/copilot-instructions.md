@@ -11,6 +11,7 @@ Use these sources in order:
 Repository-wide rules:
 
 - Treat `docs/features/` as the first-class design surface when implementation is incomplete.
+- Treat incomplete phases, unchecked checklist items, and open questions in relevant feature docs as active signals for planning and follow-up work.
 - Keep committed content shareable; do not include private machine details, absolute local paths, private account references, or secrets.
 - Use `config.example.yaml` as the committed template and keep `config.local.yaml` untracked.
 - Keep config focused on real behavioral choices; do not add configurable repo-owned paths without a demonstrated need.

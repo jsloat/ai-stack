@@ -96,6 +96,8 @@ Checklists should be:
 - reviewable in git
 - possible to mark complete with evidence
 
+Unchecked items are active backlog, not passive documentation. Future sessions should look for incomplete checklist items before deciding what to work on next or before claiming a feature area is done.
+
 ## Repository Impact Section
 
 Every feature doc should say which areas of the repo it changes or expects to change. That usually includes one or more of:
@@ -177,6 +179,8 @@ Exit Criteria:
 - Record unresolved decisions in `Open Questions` rather than hiding them in prose.
 - Treat these files as working design contracts, not marketing docs.
 - Keep feature docs safe to share: avoid absolute local paths, private machine context, and secrets.
+
+Open questions are also active backlog signals. If a relevant feature doc has unresolved questions, future sessions should consider whether the current task should answer or narrow them.
 
 ## Relationship To Instruction Files
 

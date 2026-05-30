@@ -83,6 +83,8 @@ This repository uses a simple documentation split:
 
 New durable rules should go in shared docs first. New agent workflow guidance should go in `AGENTS.md`.
 
+Feature docs should be treated as active backlog artifacts, not archival notes. Incomplete phases, unchecked checklist items, and unresolved open questions in `docs/features/*.md` should stay visible and inform what happens next.
+
 ## Config Bootstrap
 
 The repository currently provides a committed template at `config.example.yaml`.
