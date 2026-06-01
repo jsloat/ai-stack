@@ -239,7 +239,9 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         )
         self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "active")
         self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], str(path_dir / "rtk"))
-        self.assertEqual(trace["adapter"]["details"]["harnessCommand"], str(path_dir / "codex"))
+        self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "codex")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["command"], str(path_dir / "codex"))
+        self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
 
     def test_codex_live_adapter_reports_missing_rtk_cleanly(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -251,7 +253,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 "codex",
                 "Reply with OK",
                 extra_env={
-                    "PATH": str(path_dir),
+                    "PATH": f"{path_dir}:/usr/bin:/bin:/opt/homebrew/bin",
                 },
             )
 
@@ -275,6 +277,53 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             'export PATH="$HOME/.local/bin:$PATH"',
             trace["adapter"]["details"]["rtk"]["install"]["pathSuggestion"],
         )
+
+    def test_codex_live_adapter_reports_missing_codex_cleanly(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            path_dir = root / "bin"
+            path_dir.mkdir()
+            fake_rtk = path_dir / "rtk"
+            fake_rtk.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import subprocess
+                    import sys
+
+                    proc = subprocess.run(sys.argv[2:], capture_output=True, text=True, check=False)
+                    sys.stdout.write(proc.stdout)
+                    sys.stderr.write(proc.stderr)
+                    sys.exit(proc.returncode)
+                    """
+                )
+            )
+            fake_rtk.chmod(0o755)
+
+            result = self.run_adapter_cli(
+                root,
+                "codex",
+                "Reply with OK",
+                extra_env={
+                    "PATH": f"{path_dir}:/usr/bin:/bin:/opt/homebrew/bin",
+                },
+            )
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["adapter"]["selected"], "codex")
+        self.assertEqual(trace["adapter"]["mode"], "live")
+        self.assertEqual(trace["adapter"]["status"], "failed")
+        self.assertTrue(trace["adapter"]["attempted"])
+        self.assertNotEqual(trace["adapter"]["exitCode"], 0)
+        self.assertEqual(trace["adapter"]["resultText"], "")
+        self.assertIn("No such file or directory", trace["adapter"]["debug"]["stderr"])
+        self.assertEqual(trace["adapter"]["details"]["reason"], "codex-missing")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "active")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], str(path_dir / "rtk"))
+        self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "codex")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["command"], "codex")
+        self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
 
 
 if __name__ == "__main__":

@@ -110,6 +110,8 @@ If RTK is missing, the preferred install commands are:
 
 `ai-stack` code expects `rtk` to be available on `PATH`. If RTK is installed to a standard user-local path such as `~/.local/bin` but still not found, fix the environment instead of relying on repo-local overrides.
 
+Supported harness binaries such as `codex` are treated as prerequisites. `ai-stack` expects them to already be installed and available on `PATH`.
+
 ## Current Status
 
 The repository now has one narrow runnable slice:

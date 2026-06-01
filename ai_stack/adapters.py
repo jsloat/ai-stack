@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -69,6 +68,19 @@ def resolve_required_bin(command_name: str) -> str:
     if discovered:
         return discovered
     return command_name
+
+
+def infer_harness_failure_reason(stderr_text: str, harness_command: str) -> Optional[str]:
+    normalized = stderr_text.lower()
+    command_name = Path(harness_command).name.lower()
+    missing_markers = [
+        "no such file or directory",
+        "command not found",
+        "filenotfounderror",
+    ]
+    if command_name in normalized and any(marker in normalized for marker in missing_markers):
+        return f"{command_name}-missing"
+    return None
 
 
 def run_adapter_dry_mode(harness_id: str, resolution: Dict[str, Any]) -> Dict[str, Any]:
@@ -146,11 +158,18 @@ def run_adapter_live(harness_id: str, prompt: str) -> Dict[str, Any]:
                     "command": rtk_bin,
                     "install": rtk_install_hint() if reason == "rtk-missing" else None,
                 },
-                "harnessCommand": codex_bin,
+                "harness": {
+                    "id": harness_id,
+                    "command": codex_bin,
+                    "install": None,
+                },
             },
         }
 
     result_text = proc.stdout.strip()
+    failure_reason = None
+    if proc.returncode != 0:
+        failure_reason = infer_harness_failure_reason(proc.stderr, codex_bin)
     return {
         "selected": harness_id,
         "found": True,
@@ -165,10 +184,15 @@ def run_adapter_live(harness_id: str, prompt: str) -> Dict[str, Any]:
         },
         "details": {
             "command": cmd,
+            "reason": failure_reason,
             "rtk": {
                 "status": "active",
                 "command": rtk_bin,
             },
-            "harnessCommand": codex_bin,
+            "harness": {
+                "id": harness_id,
+                "command": codex_bin,
+                "install": None,
+            },
         },
     }
