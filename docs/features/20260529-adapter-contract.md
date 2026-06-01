@@ -2,7 +2,7 @@
 
 ## Summary
 
-Define the first contract for adapters in `ai-stack`. An adapter is the boundary layer between shared orchestration concepts and a specific harness such as Codex or Copilot. The initial contract should be narrow enough to support the current resolution-and-trace slice while leaving room for future task execution.
+Define the first contract for adapters in `ai-stack`. An adapter is the boundary layer between shared orchestration concepts and a specific harness such as Codex or Copilot. The initial contract should be narrow enough to support the current resolution-and-trace slice while leaving room for future task execution, mandatory RTK-mediated execution, and compact tool-surface patterns such as Cloudflare Code Mode where relevant.
 
 ## Problem
 
@@ -54,6 +54,31 @@ An adapter should own:
 - how a request is invoked
 - how adapter-level results are normalized back into shared runtime structures
 
+### Required Execution Wrapper
+
+Some execution behavior belongs to the stack even though it is not itself a harness.
+
+Examples:
+
+- RTK sitting between a harness and local shell tooling to reduce noisy command output before it reaches the model
+
+RTK should be treated as required execution infrastructure for supported harnesses:
+
+- it should not create a new harness identity
+- adapters should own how and when the harness is invoked through RTK
+- the adapter trace should report whether RTK was active, bypassed, or unavailable
+- missing RTK should be treated as a setup or compatibility problem, not as the normal happy path
+
+### Large Tool-Surface Pattern
+
+Some adapters may need to expose very large MCP or API surfaces to a model. In those cases, a Code Mode style pattern is relevant:
+
+- expose one compact code-execution tool or typed SDK surface instead of thousands of fine-grained tools
+- let the model compose multi-step tool usage in code
+- keep the adapter responsible for sandboxing, execution, and result normalization
+
+This should be treated as an adapter pattern, not as a universal rule for every harness integration. It is most relevant when raw tool catalogs would consume too much context or force excessive tool-calling round trips.
+
 ### Minimum Adapter Responsibilities
 
 For the first contract, an adapter should expose enough behavior to support:
@@ -84,6 +109,7 @@ The first adapter contract does not need:
 - multi-step workflow plans
 - benchmark metadata
 - persistent telemetry sinks
+- Code Mode style execution semantics for every adapter
 
 ### Initial Result Shape
 
@@ -190,12 +216,16 @@ Outputs:
 - live execution behavior
 - normalized adapter result handling
 - stronger adapter tests
+- a documented stance on mandatory RTK mediation and large tool-surface patterns
 
 Checklist:
 
-- [ ] Define the first real harness invocation contract.
-- [ ] Normalize success, failure, and unsupported cases.
-- [ ] Add tests for adapter-specific edge cases.
+- [x] Define the first real harness invocation contract.
+- [x] Normalize success, failure, and unsupported cases.
+- [x] Add tests for adapter-specific edge cases.
+- [ ] Define how adapter traces should report RTK mediation, bypass, or setup failure.
+- [ ] Define which harnesses are RTK-supported versus exempt.
+- [ ] Decide whether any adapter needs a Code Mode style tool-surface path in the near term.
 
 Exit Criteria:
 One harness can be exercised through the adapter boundary in a real execution mode.
@@ -205,12 +235,15 @@ One harness can be exercised through the adapter boundary in a real execution mo
 - The repo defines a clear adapter boundary.
 - Core runtime and harness-specific logic are separated conceptually.
 - The first adapter implementation can be tested through a dry-run or traceable handoff.
+- At least one harness can be exercised through a live adapter path.
 - Adding a second harness will not require redesigning the core runtime concepts introduced here.
 
 ## Open Questions
 
 - Should the first live execution target be Codex or Copilot?
 - How much instruction translation should happen in the adapter versus in shared runtime preparation?
+- What is the minimum RTK contract `ai-stack` should assume: binary presence only, specific hook support, or a richer integration surface?
+- Which future integrations, if any, are large enough to justify a Code Mode style surface instead of direct tool catalogs?
 
 ## Follow-Up Work
 

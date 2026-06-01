@@ -15,6 +15,8 @@ The long-term platform direction is:
 - separate sharable project assets from private local additions
 - measure model and workflow performance with both benchmarks and telemetry
 - make multi-phase workflows explicit instead of burying them inside ad hoc prompts
+- route execution through RTK as a standard part of the stack so harnesses see filtered, lower-noise command output by default
+- prefer compact, typed tool surfaces for large API or MCP integrations when raw tool catalogs would overwhelm context
 
 One explicit requirement for this repo is that it should be operable by both Codex and GitHub Copilot without maintaining two divergent documentation systems.
 
@@ -75,6 +77,8 @@ Completed implementation docs move to `docs/features/done/` so the top-level `do
 - Prefer harness-native mechanisms such as `AGENTS.md`, instructions files, and skills over custom prompt glue.
 - Keep `shared` content safe to commit and distribute.
 - Keep `local` content private, environment-specific, and optional.
+- Treat RTK-style command-output filtering as required execution infrastructure for supported harnesses, not as an optional local add-on.
+- Treat Cloudflare Code Mode as a useful adapter pattern for large tool surfaces, not as a universal replacement for normal tool calling.
 - Use workflows only when a task crosses distinct phases with different tools, models, or success criteria.
 - Separate benchmark evidence from runtime telemetry. Both inform routing, but they answer different questions.
 
@@ -88,7 +92,11 @@ python3 bin/ai-stack resolve-skill <skill-name>
 
 That slice proves optional local config discovery, local skill-index discovery, deterministic skill resolution, and structured load tracing. The broader orchestration platform is still in the early implementation phase.
 
-The runtime also now routes that resolved skill through a dry-run adapter boundary for `codex` and `copilot`, returning normalized adapter trace output without attempting live harness execution yet.
+The runtime also now has:
+
+- dry-run adapter routing for `codex` and `copilot`
+- a live `codex` adapter smoke path via `python3 bin/ai-stack adapter codex --prompt "Reply with OK"`
+- normalized adapter result output with debug traces separated from primary result text
 
 ## Agent Guidance
 

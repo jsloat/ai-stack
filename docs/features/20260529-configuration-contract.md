@@ -25,6 +25,7 @@ This is especially risky for a shared AI tooling repo because configuration tend
 - Define configuration precedence clearly enough that future code does not invent it.
 - Keep local skill-index discovery convention-based rather than configurable unless a real need emerges.
 - Standardize the example local skill-index filename without overcommitting to a heavy format contract.
+- Define the smallest shared configuration needed once RTK is considered mandatory infrastructure.
 
 ## Non-Goals
 
@@ -126,6 +127,16 @@ telemetry:
 - only toggles whether runtime telemetry is captured
 - does not define telemetry schema by itself
 
+### RTK
+
+RTK should be treated as part of the default execution environment for supported harnesses.
+
+That does not automatically mean the initial config surface should be large. The current bias should still be:
+
+- keep RTK behavior as implicit default infrastructure where possible
+- expose only the minimum shared config needed to detect or control required RTK usage
+- avoid turning RTK support into a general path-config dumping ground
+
 ## Repository Impact
 
 This feature affects:
@@ -224,6 +235,7 @@ The first executable slice can consume config without forcing a schema redesign.
 - Should environment variables exist in the first implementation, or should they wait until there is a proven need?
 - Should runtime eventually look for a concrete non-example local skill-index file alongside `skill-index.example.md`?
 - At what point would configurable external skill directories become justified?
+- Which RTK assumptions should be shared and explicit versus ambient and environment-driven?
 
 ## Follow-Up Work
 
