@@ -12,7 +12,7 @@ REPO_ROOT = Path("/Users/jsloat/Dev/ai-stack")
 CLI_PATH = REPO_ROOT / "bin" / "ai-stack"
 
 
-class FirstExecutableSliceTests(unittest.TestCase):
+class CliResolutionAndAdapterTests(unittest.TestCase):
     def run_cli(self, cwd: Path, skill: str):
         return subprocess.run(
             [sys.executable, str(CLI_PATH), "resolve-skill", skill],
@@ -174,7 +174,32 @@ class FirstExecutableSliceTests(unittest.TestCase):
     def test_codex_live_adapter_reports_success_with_fake_executable(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
+            fake_rtk = root / "fake-rtk.py"
             fake_codex = root / "fake-codex.py"
+            fake_rtk.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import subprocess
+                    import sys
+
+                    args = sys.argv[1:]
+                    if not args or args[0] != "proxy":
+                        print("unexpected rtk args:" + " ".join(args), file=sys.stderr)
+                        sys.exit(9)
+
+                    proc = subprocess.run(args[1:], capture_output=True, text=True, check=False)
+                    sys.stdout.write(proc.stdout)
+                    sys.stderr.write(proc.stderr)
+                    sys.exit(proc.returncode)
+                    """
+                )
+            )
+            fake_rtk.chmod(0o755)
+            path_dir = root / "bin"
+            path_dir.mkdir()
+            (path_dir / "rtk").write_text(fake_rtk.read_text())
+            (path_dir / "rtk").chmod(0o755)
             fake_codex.write_text(
                 textwrap.dedent(
                     """\
@@ -186,14 +211,15 @@ class FirstExecutableSliceTests(unittest.TestCase):
                 )
             )
             fake_codex.chmod(0o755)
+            (path_dir / "codex").write_text(fake_codex.read_text())
+            (path_dir / "codex").chmod(0o755)
 
             result = self.run_adapter_cli(
                 root,
                 "codex",
                 "Reply with OK",
                 extra_env={
-                    "PATH": os.environ.get("PATH", ""),
-                    "AI_STACK_CODEX_BIN": str(fake_codex),
+                    "PATH": f"{path_dir}:{os.environ.get('PATH', '')}",
                 },
             )
 
@@ -207,17 +233,25 @@ class FirstExecutableSliceTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["resultText"], "OK FROM FAKE CODEX\nARGS:exec Reply with OK")
         self.assertEqual(trace["adapter"]["debug"]["stdout"], "OK FROM FAKE CODEX\nARGS:exec Reply with OK\n")
         self.assertEqual(trace["adapter"]["debug"]["stderr"], "")
+        self.assertEqual(
+            trace["adapter"]["details"]["command"],
+            [str(path_dir / "rtk"), "proxy", str(path_dir / "codex"), "exec", "Reply with OK"],
+        )
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "active")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], str(path_dir / "rtk"))
+        self.assertEqual(trace["adapter"]["details"]["harnessCommand"], str(path_dir / "codex"))
 
-    def test_codex_live_adapter_reports_spawn_failure_cleanly(self):
+    def test_codex_live_adapter_reports_missing_rtk_cleanly(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
+            path_dir = root / "bin"
+            path_dir.mkdir()
             result = self.run_adapter_cli(
                 root,
                 "codex",
                 "Reply with OK",
                 extra_env={
-                    "PATH": os.environ.get("PATH", ""),
-                    "AI_STACK_CODEX_BIN": str(root / "missing-codex"),
+                    "PATH": str(path_dir),
                 },
             )
 
@@ -230,6 +264,17 @@ class FirstExecutableSliceTests(unittest.TestCase):
         self.assertIsNone(trace["adapter"]["exitCode"])
         self.assertEqual(trace["adapter"]["resultText"], "")
         self.assertIn("No such file or directory", trace["adapter"]["debug"]["stderr"])
+        self.assertEqual(trace["adapter"]["details"]["reason"], "rtk-missing")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "missing")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], "rtk")
+        self.assertIn(
+            "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh",
+            trace["adapter"]["details"]["rtk"]["install"]["installCommands"],
+        )
+        self.assertIn(
+            'export PATH="$HOME/.local/bin:$PATH"',
+            trace["adapter"]["details"]["rtk"]["install"]["pathSuggestion"],
+        )
 
 
 if __name__ == "__main__":

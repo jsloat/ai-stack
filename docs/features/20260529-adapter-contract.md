@@ -68,6 +68,7 @@ RTK should be treated as required execution infrastructure for supported harness
 - adapters should own how and when the harness is invoked through RTK
 - the adapter trace should report whether RTK was active, bypassed, or unavailable
 - missing RTK should be treated as a setup or compatibility problem, not as the normal happy path
+- any harness process launched by `ai-stack` code should go through RTK unless a documented exemption exists
 
 ### Large Tool-Surface Pattern
 

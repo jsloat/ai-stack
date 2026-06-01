@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
+import shutil
 import subprocess
 from typing import Any, Dict, Optional
 
@@ -43,6 +45,32 @@ ADAPTERS = {
 }
 
 
+def rtk_install_hint() -> Dict[str, Any]:
+    return {
+        "expectedLocations": [
+            str(Path.home() / ".local" / "bin" / "rtk"),
+            "/opt/homebrew/bin/rtk",
+            "/usr/local/bin/rtk",
+        ],
+        "installCommands": [
+            "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh",
+            "brew install rtk-ai/tap/rtk",
+        ],
+        "verifyCommands": [
+            "rtk --version",
+            "rtk gain",
+        ],
+        "pathSuggestion": 'export PATH="$HOME/.local/bin:$PATH"',
+    }
+
+
+def resolve_required_bin(command_name: str) -> str:
+    discovered = shutil.which(command_name)
+    if discovered:
+        return discovered
+    return command_name
+
+
 def run_adapter_dry_mode(harness_id: str, resolution: Dict[str, Any]) -> Dict[str, Any]:
     adapter: Optional[Adapter] = ADAPTERS.get(harness_id)
     if adapter is None:
@@ -79,11 +107,9 @@ def run_adapter_live(harness_id: str, prompt: str) -> Dict[str, Any]:
             },
         }
 
-    codex_bin = os.environ.get(
-        "AI_STACK_CODEX_BIN",
-        os.path.expanduser("~/.nvm/versions/node/v24.12.0/bin/codex"),
-    )
-    cmd = [codex_bin, "exec", prompt]
+    rtk_bin = resolve_required_bin("rtk")
+    codex_bin = resolve_required_bin("codex")
+    cmd = [rtk_bin, "proxy", codex_bin, "exec", prompt]
 
     try:
         proc = subprocess.run(
@@ -93,6 +119,13 @@ def run_adapter_live(harness_id: str, prompt: str) -> Dict[str, Any]:
             check=False,
         )
     except OSError as exc:
+        reason = "spawn-failed"
+        rtk_status = "active"
+        if exc.filename == rtk_bin:
+            reason = "rtk-missing"
+            rtk_status = "missing"
+        elif exc.filename == codex_bin:
+            reason = "codex-missing"
         return {
             "selected": harness_id,
             "found": True,
@@ -107,7 +140,13 @@ def run_adapter_live(harness_id: str, prompt: str) -> Dict[str, Any]:
             },
             "details": {
                 "command": cmd,
-                "reason": "spawn-failed",
+                "reason": reason,
+                "rtk": {
+                    "status": rtk_status,
+                    "command": rtk_bin,
+                    "install": rtk_install_hint() if reason == "rtk-missing" else None,
+                },
+                "harnessCommand": codex_bin,
             },
         }
 
@@ -126,5 +165,10 @@ def run_adapter_live(harness_id: str, prompt: str) -> Dict[str, Any]:
         },
         "details": {
             "command": cmd,
+            "rtk": {
+                "status": "active",
+                "command": rtk_bin,
+            },
+            "harnessCommand": codex_bin,
         },
     }

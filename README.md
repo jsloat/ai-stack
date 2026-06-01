@@ -82,6 +82,34 @@ Completed implementation docs move to `docs/features/done/` so the top-level `do
 - Use workflows only when a task crosses distinct phases with different tools, models, or success criteria.
 - Separate benchmark evidence from runtime telemetry. Both inform routing, but they answer different questions.
 
+## Harness Startup Best Practice
+
+For consumers of this repo, the preferred operating model is to start agent sessions through RTK rather than launching a harness directly.
+
+That is a best practice, not something the repository can universally enforce for every shell or machine. The reason is simple: once an agent session is already running, the repo can shape behavior inside that session, but it cannot retroactively change how the session was launched.
+
+So the recommended pattern is:
+
+- launch Codex, Copilot, or future supported harnesses through RTK whenever possible
+- treat raw harness startup as a fallback or compatibility path, not the preferred default
+- let repo-level adapters and instructions assume RTK-mediated startup is the normal case
+
+For code inside this repository, the rule is stronger:
+
+- any harness process launched by `ai-stack` code should go through RTK unless a documented exemption exists
+
+Common RTK install paths on macOS are:
+
+- `~/.local/bin/rtk`
+- `/opt/homebrew/bin/rtk`
+
+If RTK is missing, the preferred install commands are:
+
+- `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh`
+- `brew install rtk-ai/tap/rtk`
+
+`ai-stack` code expects `rtk` to be available on `PATH`. If RTK is installed to a standard user-local path such as `~/.local/bin` but still not found, fix the environment instead of relying on repo-local overrides.
+
 ## Current Status
 
 The repository now has one narrow runnable slice:
