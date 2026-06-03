@@ -295,6 +295,14 @@ def _build_skill_prompt(skill_content: str, prompt: str) -> str:
     )
 
 
+def get_model_for_role(config_effective: Dict[str, Any], role: str) -> Optional[str]:
+    models = config_effective.get("models", {})
+    if not isinstance(models, dict):
+        return None
+    model = models.get(role)
+    return str(model) if model else None
+
+
 def run_skill(root: Path, skill_name: str, prompt: str) -> Dict[str, Any]:
     trace = resolve_skill(root, skill_name)
     if not trace["resolution"]["matched"]:
@@ -329,6 +337,7 @@ def run_skill(root: Path, skill_name: str, prompt: str) -> Dict[str, Any]:
             "sourceRepo": trace["resolution"]["sourceRepo"],
             "skillPath": trace["resolution"]["skillPath"],
             "resolvedSkillFilePath": skill_file["path"],
+            "model": get_model_for_role(trace["config"]["effective"], "implementer"),
             "yolo": trace["config"]["effective"].get("yolo", False),
         },
     )
@@ -370,6 +379,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 args.harness,
                 args.prompt,
                 context={
+                    "model": get_model_for_role(config["effective"], "implementer"),
                     "yolo": config["effective"].get("yolo", False),
                 },
             ),

@@ -60,8 +60,11 @@ class CodexAdapter(BasicAdapter):
         rtk_bin = resolve_required_bin("rtk")
         codex_bin = resolve_required_bin("codex")
         context = context or {}
+        model = context.get("model")
         yolo = bool(context.get("yolo", False))
         cmd = [rtk_bin, "proxy", codex_bin, "exec"]
+        if model:
+            cmd.extend(["-m", str(model)])
         if yolo:
             cmd.extend(["--sandbox", "danger-full-access", "--skip-git-repo-check"])
         cmd.append(prompt)
@@ -105,6 +108,7 @@ class CodexAdapter(BasicAdapter):
                     harness=HarnessDetails(
                         id=self.harness_id,
                         command=codex_bin,
+                        model=str(model) if model is not None else None,
                         yolo=yolo,
                         install=None,
                     ),
@@ -137,6 +141,7 @@ class CodexAdapter(BasicAdapter):
                 harness=HarnessDetails(
                     id=self.harness_id,
                     command=codex_bin,
+                    model=str(model) if model is not None else None,
                     yolo=yolo,
                     install=None,
                 ),

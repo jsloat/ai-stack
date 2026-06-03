@@ -104,6 +104,11 @@ The first shared adapter input should stay narrow and include only:
 - resolved skill location, if any
 - effective config snapshot or relevant subset
 
+That relevant config subset may include harness-independent preferences such as:
+
+- `yolo`
+- selected model role resolution, such as the current `implementer` role used for live execution
+
 The first adapter contract does not need:
 
 - full conversation history

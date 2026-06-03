@@ -21,6 +21,7 @@ class RtkDetails:
 class HarnessDetails:
     id: str
     command: str
+    model: Optional[str] = None
     yolo: bool = False
     install: Optional[dict[str, Any]] = None
 

@@ -42,6 +42,7 @@ Configuration should remain intentionally small in the current phase.
 The initial config contract should support:
 
 - default harness selection
+- top-level execution preference toggles such as `yolo`
 - model role selection
 - telemetry enablement
 
@@ -99,6 +100,7 @@ The schema should stay small:
 
 ```yaml
 defaultHarness: copilot
+yolo: false
 
 models:
   planner: sonnet
@@ -121,6 +123,13 @@ telemetry:
 - maps stable execution roles to model ids
 - roles should remain semantic, not task-specific
 - early roles such as `planner`, `implementer`, and `cheapVerifier` are acceptable
+- current implementation uses `implementer` for live execution commands such as `run-skill` and `adapter codex`
+
+`yolo`
+
+- top-level execution preference for permissive harness behavior
+- adapters may map it differently per harness
+- current implementation maps `yolo: true` for Codex to `--sandbox danger-full-access --skip-git-repo-check`
 
 `telemetry.enabled`
 
@@ -214,7 +223,7 @@ Outputs:
 Checklist:
 
 - [ ] Document how adapter selection consumes `defaultHarness`.
-- [ ] Document how workflow code consumes model roles.
+- [x] Document how workflow code consumes model roles.
 - [x] Document the conventional local skill-index filename and how it is discovered.
 - [ ] Confirm that no repo-owned paths need to become configurable yet.
 

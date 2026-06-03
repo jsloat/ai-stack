@@ -299,11 +299,11 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["exitCode"], 0)
         self.assertEqual(
             trace["adapter"]["resultText"],
-            "OK FROM FAKE CODEX\nARGS:exec --sandbox danger-full-access --skip-git-repo-check Reply with OK",
+            "OK FROM FAKE CODEX\nARGS:exec -m gpt-5.5 --sandbox danger-full-access --skip-git-repo-check Reply with OK",
         )
         self.assertEqual(
             trace["adapter"]["debug"]["stdout"],
-            "OK FROM FAKE CODEX\nARGS:exec --sandbox danger-full-access --skip-git-repo-check Reply with OK\n",
+            "OK FROM FAKE CODEX\nARGS:exec -m gpt-5.5 --sandbox danger-full-access --skip-git-repo-check Reply with OK\n",
         )
         self.assertEqual(trace["adapter"]["debug"]["stderr"], "")
         self.assertEqual(
@@ -313,6 +313,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 "proxy",
                 str(path_dir / "codex"),
                 "exec",
+                "-m",
+                "gpt-5.5",
                 "--sandbox",
                 "danger-full-access",
                 "--skip-git-repo-check",
@@ -323,6 +325,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], str(path_dir / "rtk"))
         self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "codex")
         self.assertEqual(trace["adapter"]["details"]["harness"]["command"], str(path_dir / "codex"))
+        self.assertEqual(trace["adapter"]["details"]["harness"]["model"], "gpt-5.5")
         self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
         self.assertTrue(trace["adapter"]["details"]["harness"]["yolo"])
 
@@ -493,7 +496,9 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["selected"], "codex")
         self.assertEqual(trace["adapter"]["mode"], "live")
         self.assertEqual(trace["adapter"]["status"], "completed")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["model"], "gpt-5.5")
         self.assertIn("RUN SKILL OK", trace["adapter"]["resultText"])
+        self.assertIn("-m gpt-5.5", trace["adapter"]["resultText"])
         self.assertIn("SKILL SENTINEL", trace["adapter"]["resultText"])
         self.assertIn("Reply with OK", trace["adapter"]["resultText"])
         self.assertEqual(trace["adapter"]["details"]["requestedSkill"], "pull-request")

@@ -125,6 +125,7 @@ The runtime also now has:
 Current config also supports:
 
 - `yolo: true|false` as a top-level execution preference that adapters can map to harness-specific permissive execution behavior
+- `models.implementer` as the currently active model role for live Codex execution paths
 
 For repo-scoped commands such as `resolve-skill` and `run-skill`, `ai-stack` treats this repository as its default home. That means the commands load `config.local.yaml` and `skill-indexes/local/skill-index.yaml` from the `ai-stack` repo even if you launch them from another working directory.
 
@@ -161,6 +162,11 @@ For `codex`, `yolo: true` currently maps to adding:
 - `--skip-git-repo-check`
 
 to `codex exec` invocations launched by `ai-stack`.
+
+For `codex`, the currently active model-role mapping is:
+
+- `run-skill` and `adapter codex` use `models.implementer`
+- that role is passed through as `codex exec -m <model>`
 
 ## Current Scaffold
 
