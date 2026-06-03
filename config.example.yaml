@@ -2,6 +2,7 @@
 # Keep config.local.yaml untracked.
 
 defaultHarness: copilot
+yolo: false
 
 models:
   planner: sonnet

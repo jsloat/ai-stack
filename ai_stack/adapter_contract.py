@@ -21,6 +21,7 @@ class RtkDetails:
 class HarnessDetails:
     id: str
     command: str
+    yolo: bool = False
     install: Optional[dict[str, Any]] = None
 
 
@@ -30,6 +31,7 @@ class AdapterDetails:
     requestedSkill: Optional[str] = None
     sourceRepo: Optional[str] = None
     skillPath: Optional[str] = None
+    resolvedSkillFilePath: Optional[str] = None
     command: Optional[list[str]] = None
     rtk: Optional[RtkDetails] = None
     harness: Optional[HarnessDetails] = None
@@ -57,5 +59,5 @@ class AdapterRuntime(Protocol):
     def dry_run(self, resolution: Mapping[str, Any]) -> AdapterResult:
         ...
 
-    def run_prompt(self, prompt: str) -> AdapterResult:
+    def run_prompt(self, prompt: str, context: Optional[Mapping[str, Any]] = None) -> AdapterResult:
         ...

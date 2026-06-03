@@ -43,7 +43,7 @@ class BasicAdapter:
             ),
         )
 
-    def run_prompt(self, prompt: str) -> AdapterResult:
+    def run_prompt(self, prompt: str, context: Optional[Mapping[str, Any]] = None) -> AdapterResult:
         return AdapterResult(
             selected=self.harness_id,
             found=True,
@@ -56,10 +56,15 @@ class BasicAdapter:
 
 @dataclass(frozen=True)
 class CodexAdapter(BasicAdapter):
-    def run_prompt(self, prompt: str) -> AdapterResult:
+    def run_prompt(self, prompt: str, context: Optional[Mapping[str, Any]] = None) -> AdapterResult:
         rtk_bin = resolve_required_bin("rtk")
         codex_bin = resolve_required_bin("codex")
-        cmd = [rtk_bin, "proxy", codex_bin, "exec", prompt]
+        context = context or {}
+        yolo = bool(context.get("yolo", False))
+        cmd = [rtk_bin, "proxy", codex_bin, "exec"]
+        if yolo:
+            cmd.extend(["--sandbox", "danger-full-access", "--skip-git-repo-check"])
+        cmd.append(prompt)
 
         try:
             proc = subprocess.run(
@@ -88,6 +93,10 @@ class CodexAdapter(BasicAdapter):
                 details=AdapterDetails(
                     command=cmd,
                     reason=reason,
+                    requestedSkill=context.get("requestedSkill"),
+                    sourceRepo=context.get("sourceRepo"),
+                    skillPath=context.get("skillPath"),
+                    resolvedSkillFilePath=context.get("resolvedSkillFilePath"),
                     rtk=RtkDetails(
                         status=rtk_status,
                         command=rtk_bin,
@@ -96,6 +105,7 @@ class CodexAdapter(BasicAdapter):
                     harness=HarnessDetails(
                         id=self.harness_id,
                         command=codex_bin,
+                        yolo=yolo,
                         install=None,
                     ),
                 ),
@@ -116,6 +126,10 @@ class CodexAdapter(BasicAdapter):
             details=AdapterDetails(
                 command=cmd,
                 reason=failure_reason,
+                requestedSkill=context.get("requestedSkill"),
+                sourceRepo=context.get("sourceRepo"),
+                skillPath=context.get("skillPath"),
+                resolvedSkillFilePath=context.get("resolvedSkillFilePath"),
                 rtk=RtkDetails(
                     status="active",
                     command=rtk_bin,
@@ -123,6 +137,7 @@ class CodexAdapter(BasicAdapter):
                 harness=HarnessDetails(
                     id=self.harness_id,
                     command=codex_bin,
+                    yolo=yolo,
                     install=None,
                 ),
             ),
@@ -189,7 +204,7 @@ def run_adapter_dry_mode(harness_id: str, resolution: Mapping[str, Any]) -> dict
     return adapter.dry_run(resolution).to_dict()
 
 
-def run_adapter_live(harness_id: str, prompt: str) -> dict[str, Any]:
+def run_adapter_live(harness_id: str, prompt: str, context: Optional[Mapping[str, Any]] = None) -> dict[str, Any]:
     adapter: Optional[AdapterRuntime] = ADAPTERS.get(harness_id)
     if adapter is None:
         return AdapterResult(
@@ -201,4 +216,4 @@ def run_adapter_live(harness_id: str, prompt: str) -> dict[str, Any]:
             details=AdapterDetails(reason="unknown-adapter"),
         ).to_dict()
 
-    return adapter.run_prompt(prompt).to_dict()
+    return adapter.run_prompt(prompt, context=context).to_dict()

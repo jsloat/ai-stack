@@ -36,12 +36,15 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             check=False,
         )
 
-    def run_adapter_cli(self, cwd: Path, harness: str, prompt: str, extra_env=None):
+    def run_adapter_cli(self, cwd: Path, harness: str, prompt: str, extra_env=None, root: Optional[Path] = None):
         env = os.environ.copy()
         if extra_env is not None:
             env.update(extra_env)
+        cmd = [sys.executable, str(CLI_PATH), "adapter", harness, "--prompt", prompt]
+        if root is not None:
+            cmd.extend(["--root", str(root)])
         return subprocess.run(
-            [sys.executable, str(CLI_PATH), "adapter", harness, "--prompt", prompt],
+            cmd,
             cwd=str(cwd),
             capture_output=True,
             text=True,
@@ -221,6 +224,22 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
     def test_codex_live_adapter_reports_success_with_fake_executable(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
+            (root / "config.local.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    defaultHarness: codex
+                    yolo: true
+
+                    models:
+                      planner: sonnet
+                      implementer: gpt-5.5
+                      cheapVerifier: gpt-5.5-mini
+
+                    telemetry:
+                      enabled: false
+                    """
+                )
+            )
             fake_rtk = root / "fake-rtk.py"
             fake_codex = root / "fake-codex.py"
             fake_rtk.write_text(
@@ -268,6 +287,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 extra_env={
                     "PATH": f"{path_dir}:{os.environ.get('PATH', '')}",
                 },
+                root=root,
             )
 
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -277,18 +297,34 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["status"], "completed")
         self.assertTrue(trace["adapter"]["attempted"])
         self.assertEqual(trace["adapter"]["exitCode"], 0)
-        self.assertEqual(trace["adapter"]["resultText"], "OK FROM FAKE CODEX\nARGS:exec Reply with OK")
-        self.assertEqual(trace["adapter"]["debug"]["stdout"], "OK FROM FAKE CODEX\nARGS:exec Reply with OK\n")
+        self.assertEqual(
+            trace["adapter"]["resultText"],
+            "OK FROM FAKE CODEX\nARGS:exec --sandbox danger-full-access --skip-git-repo-check Reply with OK",
+        )
+        self.assertEqual(
+            trace["adapter"]["debug"]["stdout"],
+            "OK FROM FAKE CODEX\nARGS:exec --sandbox danger-full-access --skip-git-repo-check Reply with OK\n",
+        )
         self.assertEqual(trace["adapter"]["debug"]["stderr"], "")
         self.assertEqual(
             trace["adapter"]["details"]["command"],
-            [str(path_dir / "rtk"), "proxy", str(path_dir / "codex"), "exec", "Reply with OK"],
+            [
+                str(path_dir / "rtk"),
+                "proxy",
+                str(path_dir / "codex"),
+                "exec",
+                "--sandbox",
+                "danger-full-access",
+                "--skip-git-repo-check",
+                "Reply with OK",
+            ],
         )
         self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "active")
         self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], str(path_dir / "rtk"))
         self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "codex")
         self.assertEqual(trace["adapter"]["details"]["harness"]["command"], str(path_dir / "codex"))
         self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
+        self.assertTrue(trace["adapter"]["details"]["harness"]["yolo"])
 
     def test_codex_live_adapter_reports_missing_rtk_cleanly(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -302,6 +338,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 extra_env={
                     "PATH": f"{path_dir}:/usr/bin:/bin:/opt/homebrew/bin",
                 },
+                root=root,
             )
 
         self.assertEqual(result.returncode, 1, result.stderr)
@@ -354,6 +391,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 extra_env={
                     "PATH": f"{path_dir}:/usr/bin:/bin:/opt/homebrew/bin",
                 },
+                root=root,
             )
 
         self.assertEqual(result.returncode, 1, result.stderr)
@@ -458,6 +496,13 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertIn("RUN SKILL OK", trace["adapter"]["resultText"])
         self.assertIn("SKILL SENTINEL", trace["adapter"]["resultText"])
         self.assertIn("Reply with OK", trace["adapter"]["resultText"])
+        self.assertEqual(trace["adapter"]["details"]["requestedSkill"], "pull-request")
+        self.assertEqual(trace["adapter"]["details"]["sourceRepo"], ".")
+        self.assertEqual(trace["adapter"]["details"]["skillPath"], "skills/pull-request/SKILL.md")
+        self.assertEqual(
+            trace["adapter"]["details"]["resolvedSkillFilePath"],
+            str((root / "skills" / "pull-request" / "SKILL.md").resolve()),
+        )
 
     def test_run_skill_returns_not_found_without_live_adapter_attempt(self):
         with tempfile.TemporaryDirectory() as tmpdir:

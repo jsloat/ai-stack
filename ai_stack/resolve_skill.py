@@ -13,6 +13,7 @@ from ai_stack.adapters import run_adapter_dry_mode, run_adapter_live
 
 DEFAULT_CONFIG = {
     "defaultHarness": "copilot",
+    "yolo": False,
     "models": {
         "planner": "sonnet",
         "implementer": "gpt-5.5",
@@ -323,6 +324,13 @@ def run_skill(root: Path, skill_name: str, prompt: str) -> Dict[str, Any]:
     trace["adapter"] = run_adapter_live(
         trace["config"]["effective"]["defaultHarness"],
         _build_skill_prompt(skill_file["content"], prompt),
+        context={
+            "requestedSkill": trace["resolution"]["requestedSkill"],
+            "sourceRepo": trace["resolution"]["sourceRepo"],
+            "skillPath": trace["resolution"]["skillPath"],
+            "resolvedSkillFilePath": skill_file["path"],
+            "yolo": trace["config"]["effective"].get("yolo", False),
+        },
     )
     return trace
 
@@ -340,6 +348,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     adapter_parser = subparsers.add_parser("adapter")
     adapter_parser.add_argument("harness")
     adapter_parser.add_argument("--prompt", required=True)
+    adapter_parser.add_argument("--root", type=Path)
 
     args = parser.parse_args(argv)
 
@@ -354,8 +363,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["adapter"]["status"] == "completed" else 1
     if args.command == "adapter":
+        root = args.root.resolve() if args.root is not None else infer_repo_root()
+        config = load_local_config(root)
         trace = {
-            "adapter": run_adapter_live(args.harness, args.prompt),
+            "adapter": run_adapter_live(
+                args.harness,
+                args.prompt,
+                context={
+                    "yolo": config["effective"].get("yolo", False),
+                },
+            ),
         }
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["adapter"]["status"] == "completed" else 1

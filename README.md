@@ -122,6 +122,10 @@ The runtime also now has:
 - an end-to-end skill execution path via `python3 bin/ai-stack run-skill <skill-name> --prompt "..."`
 - normalized adapter result output with debug traces separated from primary result text
 
+Current config also supports:
+
+- `yolo: true|false` as a top-level execution preference that adapters can map to harness-specific permissive execution behavior
+
 For repo-scoped commands such as `resolve-skill` and `run-skill`, `ai-stack` treats this repository as its default home. That means the commands load `config.local.yaml` and `skill-indexes/local/skill-index.yaml` from the `ai-stack` repo even if you launch them from another working directory.
 
 If you ever need to point those commands at a different checkout, use `--root /path/to/ai-stack-like-root`.
@@ -150,6 +154,13 @@ Expected flow:
 3. Keep `config.local.yaml` untracked
 
 The example config should stay focused on real behavioral choices. Repo-owned paths and layout should remain hardcoded until there is a concrete need for relocation or external sources.
+
+For `codex`, `yolo: true` currently maps to adding:
+
+- `--sandbox danger-full-access`
+- `--skip-git-repo-check`
+
+to `codex exec` invocations launched by `ai-stack`.
 
 ## Current Scaffold
 
