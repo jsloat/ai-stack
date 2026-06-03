@@ -6,7 +6,7 @@ Define the first packaging contract for skills in `ai-stack`. The goal is to mak
 
 ## Problem
 
-The repo now has a `skills/` directory, but no contract for what a skill actually is.
+The repo intends to support a `skills/` directory, but that directory should not exist until it carries real content. The contract for what a skill actually is still needs to be defined independently of the directory being present.
 
 Without a packaging contract:
 
@@ -130,7 +130,7 @@ Examples:
 
 This feature affects:
 
-- `skills/README.md`
+- `docs/repository-structure.md`
 - future skills placed under `skills/shared/` and `skills/local/`
 - future skill discovery logic
 - future adapter behavior when translating skills into harness-native concepts
@@ -171,13 +171,13 @@ Turn the package contract into repeatable authoring guidance.
 
 Outputs:
 
-- updated `skills/README.md`
+- updated shared structure docs
 - example skill skeleton
 - criteria for when to add scripts, references, assets, or agents
 
 Checklist:
 
-- [ ] Update `skills/README.md` to reflect the packaging contract.
+- [ ] Update shared structure docs to reflect the packaging contract once `skills/` becomes a real directory.
 - [ ] Add a minimal example shared skill package.
 - [ ] Add a minimal example local skill package if useful.
 - [ ] Define when a simple `SKILL.md` is enough versus when a richer package is justified.
@@ -222,7 +222,7 @@ Future tooling can consume skill packages without special-casing every skill.
 
 ## Follow-Up Work
 
-- Update `skills/README.md` to align with this contract.
+- Update `docs/repository-structure.md` if the repository starts carrying real `skills/` content.
 - Draft the skill index contract.
 - Add one or two example skill packages once the repo is ready to demonstrate authoring patterns.
 - Use this contract to guide the first runtime skill discovery implementation.

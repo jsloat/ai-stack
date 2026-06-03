@@ -6,7 +6,7 @@ Define the first contract for adapters in `ai-stack`. An adapter is the boundary
 
 ## Problem
 
-The repository has an `adapters/` directory and a clear intent to support multiple harnesses, but there is no contract yet for what an adapter actually must do.
+The repository has a clear intent to support multiple harnesses, but there is no contract yet for what an adapter actually must do.
 
 Without an adapter contract:
 
@@ -151,8 +151,9 @@ But the contract should stay generic enough that adding another harness does not
 
 This feature affects:
 
-- `adapters/README.md`
-- future adapter code under `adapters/`
+- `docs/repository-structure.md`
+- `ai_stack/adapter_contract.py`
+- `ai_stack/adapters.py`
 - runtime command shape
 - execution traces
 - tests for adapter selection and handoff
@@ -248,6 +249,5 @@ One harness can be exercised through the adapter boundary in a real execution mo
 
 ## Follow-Up Work
 
-- Update `adapters/README.md` to reflect this contract.
 - Choose the first adapter target.
 - Extend the current runtime trace to include adapter information.

@@ -4,43 +4,134 @@ from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Any, Dict, Optional
+from typing import Any, Mapping, Optional
+
+from ai_stack.adapter_contract import (
+    AdapterDebug,
+    AdapterDetails,
+    AdapterResult,
+    AdapterRuntime,
+    HarnessDetails,
+    RtkDetails,
+)
+
+@dataclass(frozen=True)
+class BasicAdapter:
+    harness_id: str
+
+    def dry_run(self, resolution: Mapping[str, Any]) -> AdapterResult:
+        if not resolution["matched"]:
+            return AdapterResult(
+                selected=self.harness_id,
+                found=True,
+                mode="dry-run",
+                status="skipped",
+                attempted=False,
+                details=AdapterDetails(reason="no-skill-match"),
+            )
+
+        return AdapterResult(
+            selected=self.harness_id,
+            found=True,
+            mode="dry-run",
+            status="ready",
+            attempted=True,
+            details=AdapterDetails(
+                requestedSkill=resolution["requestedSkill"],
+                sourceRepo=resolution["sourceRepo"],
+                skillPath=resolution["skillPath"],
+            ),
+        )
+
+    def run_prompt(self, prompt: str) -> AdapterResult:
+        return AdapterResult(
+            selected=self.harness_id,
+            found=True,
+            mode="live",
+            status="unsupported",
+            attempted=False,
+            details=AdapterDetails(reason="live-execution-not-supported"),
+        )
 
 
 @dataclass(frozen=True)
-class Adapter:
-    harness_id: str
+class CodexAdapter(BasicAdapter):
+    def run_prompt(self, prompt: str) -> AdapterResult:
+        rtk_bin = resolve_required_bin("rtk")
+        codex_bin = resolve_required_bin("codex")
+        cmd = [rtk_bin, "proxy", codex_bin, "exec", prompt]
 
-    def dry_run(self, resolution: Dict[str, Any]) -> Dict[str, Any]:
-        if not resolution["matched"]:
-            return {
-                "selected": self.harness_id,
-                "found": True,
-                "mode": "dry-run",
-                "status": "skipped",
-                "attempted": False,
-                "details": {
-                    "reason": "no-skill-match",
-                },
-            }
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError as exc:
+            reason = "spawn-failed"
+            rtk_status = "active"
+            if exc.filename == rtk_bin:
+                reason = "rtk-missing"
+                rtk_status = "missing"
+            elif exc.filename == codex_bin:
+                reason = "codex-missing"
+            return AdapterResult(
+                selected=self.harness_id,
+                found=True,
+                mode="live",
+                status="failed",
+                attempted=True,
+                exitCode=None,
+                resultText="",
+                debug=AdapterDebug(stderr=str(exc)),
+                details=AdapterDetails(
+                    command=cmd,
+                    reason=reason,
+                    rtk=RtkDetails(
+                        status=rtk_status,
+                        command=rtk_bin,
+                        install=rtk_install_hint() if reason == "rtk-missing" else None,
+                    ),
+                    harness=HarnessDetails(
+                        id=self.harness_id,
+                        command=codex_bin,
+                        install=None,
+                    ),
+                ),
+            )
 
-        return {
-            "selected": self.harness_id,
-            "found": True,
-            "mode": "dry-run",
-            "status": "ready",
-            "attempted": True,
-            "details": {
-                "requestedSkill": resolution["requestedSkill"],
-                "sourceRepo": resolution["sourceRepo"],
-                "skillPath": resolution["skillPath"],
-            },
-        }
+        failure_reason = None
+        if proc.returncode != 0:
+            failure_reason = infer_harness_failure_reason(proc.stderr, codex_bin)
+        return AdapterResult(
+            selected=self.harness_id,
+            found=True,
+            mode="live",
+            status="completed" if proc.returncode == 0 else "failed",
+            attempted=True,
+            exitCode=proc.returncode,
+            resultText=proc.stdout.strip(),
+            debug=AdapterDebug(stdout=proc.stdout, stderr=proc.stderr),
+            details=AdapterDetails(
+                command=cmd,
+                reason=failure_reason,
+                rtk=RtkDetails(
+                    status="active",
+                    command=rtk_bin,
+                ),
+                harness=HarnessDetails(
+                    id=self.harness_id,
+                    command=codex_bin,
+                    install=None,
+                ),
+            ),
+        )
 
 
 ADAPTERS = {
-    "codex": Adapter("codex"),
-    "copilot": Adapter("copilot"),
+    "codex": CodexAdapter("codex"),
+    "copilot": BasicAdapter("copilot"),
 }
 
 
@@ -83,116 +174,31 @@ def infer_harness_failure_reason(stderr_text: str, harness_command: str) -> Opti
     return None
 
 
-def run_adapter_dry_mode(harness_id: str, resolution: Dict[str, Any]) -> Dict[str, Any]:
-    adapter: Optional[Adapter] = ADAPTERS.get(harness_id)
+def run_adapter_dry_mode(harness_id: str, resolution: Mapping[str, Any]) -> dict[str, Any]:
+    adapter: Optional[AdapterRuntime] = ADAPTERS.get(harness_id)
     if adapter is None:
-        return {
-            "selected": harness_id,
-            "found": False,
-            "mode": "dry-run",
-            "status": "unsupported",
-            "attempted": False,
-            "details": {
-                "reason": "unknown-adapter",
-            },
-        }
+        return AdapterResult(
+            selected=harness_id,
+            found=False,
+            mode="dry-run",
+            status="unsupported",
+            attempted=False,
+            details=AdapterDetails(reason="unknown-adapter"),
+        ).to_dict()
 
-    return adapter.dry_run(resolution)
+    return adapter.dry_run(resolution).to_dict()
 
 
-def run_adapter_live(harness_id: str, prompt: str) -> Dict[str, Any]:
-    if harness_id != "codex":
-        return {
-            "selected": harness_id,
-            "found": harness_id in ADAPTERS,
-            "mode": "live",
-            "status": "unsupported",
-            "attempted": False,
-            "exitCode": None,
-            "resultText": "",
-            "debug": {
-                "stdout": "",
-                "stderr": "",
-            },
-            "details": {
-                "reason": "live-execution-not-supported",
-            },
-        }
+def run_adapter_live(harness_id: str, prompt: str) -> dict[str, Any]:
+    adapter: Optional[AdapterRuntime] = ADAPTERS.get(harness_id)
+    if adapter is None:
+        return AdapterResult(
+            selected=harness_id,
+            found=False,
+            mode="live",
+            status="unsupported",
+            attempted=False,
+            details=AdapterDetails(reason="unknown-adapter"),
+        ).to_dict()
 
-    rtk_bin = resolve_required_bin("rtk")
-    codex_bin = resolve_required_bin("codex")
-    cmd = [rtk_bin, "proxy", codex_bin, "exec", prompt]
-
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as exc:
-        reason = "spawn-failed"
-        rtk_status = "active"
-        if exc.filename == rtk_bin:
-            reason = "rtk-missing"
-            rtk_status = "missing"
-        elif exc.filename == codex_bin:
-            reason = "codex-missing"
-        return {
-            "selected": harness_id,
-            "found": True,
-            "mode": "live",
-            "status": "failed",
-            "attempted": True,
-            "exitCode": None,
-            "resultText": "",
-            "debug": {
-                "stdout": "",
-                "stderr": str(exc),
-            },
-            "details": {
-                "command": cmd,
-                "reason": reason,
-                "rtk": {
-                    "status": rtk_status,
-                    "command": rtk_bin,
-                    "install": rtk_install_hint() if reason == "rtk-missing" else None,
-                },
-                "harness": {
-                    "id": harness_id,
-                    "command": codex_bin,
-                    "install": None,
-                },
-            },
-        }
-
-    result_text = proc.stdout.strip()
-    failure_reason = None
-    if proc.returncode != 0:
-        failure_reason = infer_harness_failure_reason(proc.stderr, codex_bin)
-    return {
-        "selected": harness_id,
-        "found": True,
-        "mode": "live",
-        "status": "completed" if proc.returncode == 0 else "failed",
-        "attempted": True,
-        "exitCode": proc.returncode,
-        "resultText": result_text,
-        "debug": {
-            "stdout": proc.stdout,
-            "stderr": proc.stderr,
-        },
-        "details": {
-            "command": cmd,
-            "reason": failure_reason,
-            "rtk": {
-                "status": "active",
-                "command": rtk_bin,
-            },
-            "harness": {
-                "id": harness_id,
-                "command": codex_bin,
-                "install": None,
-            },
-        },
-    }
+    return adapter.run_prompt(prompt).to_dict()

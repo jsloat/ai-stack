@@ -20,9 +20,9 @@ The long-term platform direction is:
 
 One explicit requirement for this repo is that it should be operable by both Codex and GitHub Copilot without maintaining two divergent documentation systems.
 
-## Expected Repository Shape
+## Current Repository Shape
 
-This is the current intended structure, not yet a full implementation contract:
+This is the current real structure. Planned future areas should stay in docs until they contain real code or user-managed assets.
 
 ```text
 ai-stack/
@@ -35,18 +35,10 @@ ai-stack/
   config.local.yaml
   docs/
     features/
-  skills/
-    shared/
-    local/
+    repository-structure.md
   skill-indexes/
     local/
-  agents/
-  adapters/
-  templates/
-  model-benchmarks/
-  telemetry/
-  dashboard/
-  memory/
+  ai_stack/
   tests/
   bin/
 ```
@@ -60,6 +52,7 @@ Start here:
 - `README.md`
 - `AGENTS.md`
 - `docs/features/README.md`
+- `docs/repository-structure.md`
 - `docs/features/20260529-project-initialization.md`
 
 Key design docs:
@@ -155,27 +148,24 @@ The example config should stay focused on real behavioral choices. Repo-owned pa
 
 ## Current Scaffold
 
-The repository now includes the first structural pass for:
+The current repository keeps only a small number of real top-level directories:
 
-- `skills/` and `skill-indexes/`
-- `adapters/`
-- `model-benchmarks/`
-- `telemetry/`
-- `memory/`
-- `tests/`
-- `agents/`, `templates/`, `dashboard/`, and `bin/`
+- `ai_stack/` for runtime code
+- `bin/` for CLI entrypoints
+- `docs/` for shared design and structure docs
+- `skill-indexes/` for the current local index convention
+- `tests/` for runtime tests
 
-At this stage these directories mainly establish boundaries and naming. Most still need executable contracts.
+Planned areas such as `skills/`, `memory/`, `telemetry/`, and `model-benchmarks/` are still part of the design, but they should not exist as top-level directories until they contain real assets.
 
 For `skill-indexes/`, the currently justified use case is local-only curation: private or global skill references that a user wants this repo to know about. Shared committed indexes should be added only if the repo later needs curated bundles of repo-owned skills.
 
 The current intended model is one conventional local index file that points to multiple external or local-only skills. If that file exists, future tooling can incorporate it. If it does not exist, the repo should proceed without error.
 
-From the core-vs-conventions perspective, current directories should be read roughly as:
+From the core-vs-conventions perspective, the current live areas are:
 
-- `adapters/`, `bin/`, `dashboard/`, `telemetry/`, and `tests/` trend toward core engine concerns
-- `docs/`, `.github/`, and `templates/` trend toward repo conventions
-- `model-benchmarks/` trends toward content
-- `skills/`, `skill-indexes/`, `agents/`, and `memory/` are mixed or still boundary-sensitive and should be treated carefully
+- `ai_stack/`, `bin/`, and `tests/` for runtime behavior
+- `docs/` and `.github/` for shared guidance and compatibility
+- `skill-indexes/` for the current optional local registry artifact
 
 There is currently a standardized example artifact at `skill-indexes/local/skill-index.example.md`, aligned with the current skill-index contract.
