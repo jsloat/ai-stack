@@ -122,6 +122,10 @@ The runtime also now has:
 - an end-to-end skill execution path via `python3 bin/ai-stack run-skill <skill-name> --prompt "..."`
 - normalized adapter result output with debug traces separated from primary result text
 
+For repo-scoped commands such as `resolve-skill` and `run-skill`, `ai-stack` treats this repository as its default home. That means the commands load `config.local.yaml` and `skill-indexes/local/skill-index.yaml` from the `ai-stack` repo even if you launch them from another working directory.
+
+If you ever need to point those commands at a different checkout, use `--root /path/to/ai-stack-like-root`.
+
 ## Agent Guidance
 
 This repository uses a simple documentation split:

@@ -6,6 +6,9 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from typing import Optional
+
+from ai_stack.resolve_skill import infer_repo_root
 
 
 REPO_ROOT = Path("/Users/jsloat/Dev/ai-stack")
@@ -13,9 +16,20 @@ CLI_PATH = REPO_ROOT / "bin" / "ai-stack"
 
 
 class CliResolutionAndAdapterTests(unittest.TestCase):
-    def run_cli(self, cwd: Path, skill: str):
+    def test_infer_repo_root_matches_expected_checkout_root(self):
+        inferred_root = infer_repo_root()
+
+        self.assertEqual(inferred_root, REPO_ROOT)
+        self.assertTrue((inferred_root / "ai_stack" / "resolve_skill.py").exists())
+        self.assertTrue((inferred_root / "bin" / "ai-stack").exists())
+        self.assertTrue((inferred_root / "README.md").exists())
+
+    def run_cli(self, cwd: Path, skill: str, root: Optional[Path] = None):
+        cmd = [sys.executable, str(CLI_PATH), "resolve-skill", skill]
+        if root is not None:
+            cmd.extend(["--root", str(root)])
         return subprocess.run(
-            [sys.executable, str(CLI_PATH), "resolve-skill", skill],
+            cmd,
             cwd=str(cwd),
             capture_output=True,
             text=True,
@@ -35,12 +49,15 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             env=env,
         )
 
-    def run_skill_cli(self, cwd: Path, skill: str, prompt: str, extra_env=None):
+    def run_skill_cli(self, cwd: Path, skill: str, prompt: str, extra_env=None, root: Optional[Path] = None):
         env = os.environ.copy()
         if extra_env is not None:
             env.update(extra_env)
+        cmd = [sys.executable, str(CLI_PATH), "run-skill", skill, "--prompt", prompt]
+        if root is not None:
+            cmd.extend(["--root", str(root)])
         return subprocess.run(
-            [sys.executable, str(CLI_PATH), "run-skill", skill, "--prompt", prompt],
+            cmd,
             cwd=str(cwd),
             capture_output=True,
             text=True,
@@ -50,7 +67,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
 
     def test_absent_local_config_and_index_are_clean_no_ops(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = self.run_cli(Path(tmpdir), "pull-request")
+            result = self.run_cli(Path(tmpdir), "pull-request", root=Path(tmpdir))
 
         self.assertEqual(result.returncode, 1, result.stderr)
         trace = json.loads(result.stdout)
@@ -80,7 +97,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 )
             )
 
-            result = self.run_cli(root, "pull-request")
+            result = self.run_cli(root, "pull-request", root=root)
 
         self.assertEqual(result.returncode, 1, result.stderr)
         trace = json.loads(result.stdout)
@@ -121,7 +138,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 )
             )
 
-            result = self.run_cli(root, "pull-request")
+            result = self.run_cli(root, "pull-request", root=root)
 
         self.assertEqual(result.returncode, 0, result.stderr)
         trace = json.loads(result.stdout)
@@ -159,7 +176,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 )
             )
 
-            result = self.run_cli(root, "pull-request")
+            result = self.run_cli(root, "pull-request", root=root)
 
         self.assertEqual(result.returncode, 1, result.stderr)
         trace = json.loads(result.stdout)
@@ -192,7 +209,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 )
             )
 
-            result = self.run_cli(root, "pull-request")
+            result = self.run_cli(root, "pull-request", root=root)
 
         self.assertEqual(result.returncode, 1, result.stderr)
         trace = json.loads(result.stdout)
@@ -428,6 +445,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 extra_env={
                     "PATH": f"{path_dir}:/usr/bin:/bin:/opt/homebrew/bin",
                 },
+                root=root,
             )
 
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -444,7 +462,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
     def test_run_skill_returns_not_found_without_live_adapter_attempt(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            result = self.run_skill_cli(root, "pull-request", "Reply with OK")
+            result = self.run_skill_cli(root, "pull-request", "Reply with OK", root=root)
 
         self.assertEqual(result.returncode, 1, result.stderr)
         trace = json.loads(result.stdout)
@@ -452,6 +470,30 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["mode"], "dry-run")
         self.assertEqual(trace["adapter"]["status"], "skipped")
         self.assertFalse(trace["adapter"]["attempted"])
+
+    def test_root_override_allows_repo_scoped_commands_from_other_cwd(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as other_tmpdir:
+            root = Path(tmpdir)
+            other_cwd = Path(other_tmpdir)
+            (root / "skill-indexes" / "local").mkdir(parents=True)
+            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    skills:
+                      - id: pull-request
+                        when: Creating pull requests
+                        repo: .
+                        path: skills/pull-request/SKILL.md
+                    """
+                )
+            )
+
+            result = self.run_cli(other_cwd, "pull-request", root=root)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertTrue(trace["skillIndex"]["found"])
+        self.assertTrue(trace["resolution"]["matched"])
 
 
 if __name__ == "__main__":

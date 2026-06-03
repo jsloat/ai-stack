@@ -26,6 +26,10 @@ DEFAULT_CONFIG = {
 LOCAL_INDEX_PATH = Path("skill-indexes/local/skill-index.yaml")
 
 
+def infer_repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
 def _parse_scalar(value: str) -> Any:
     value = value.strip()
     if value in {"true", "false"}:
@@ -328,9 +332,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     resolve_parser = subparsers.add_parser("resolve-skill")
     resolve_parser.add_argument("skill")
+    resolve_parser.add_argument("--root", type=Path)
     run_skill_parser = subparsers.add_parser("run-skill")
     run_skill_parser.add_argument("skill")
     run_skill_parser.add_argument("--prompt", required=True)
+    run_skill_parser.add_argument("--root", type=Path)
     adapter_parser = subparsers.add_parser("adapter")
     adapter_parser.add_argument("harness")
     adapter_parser.add_argument("--prompt", required=True)
@@ -338,11 +344,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "resolve-skill":
-        trace = resolve_skill(Path.cwd(), args.skill)
+        root = args.root.resolve() if args.root is not None else infer_repo_root()
+        trace = resolve_skill(root, args.skill)
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["resolution"]["matched"] else 1
     if args.command == "run-skill":
-        trace = run_skill(Path.cwd(), args.skill, args.prompt)
+        root = args.root.resolve() if args.root is not None else infer_repo_root()
+        trace = run_skill(root, args.skill, args.prompt)
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["adapter"]["status"] == "completed" else 1
     if args.command == "adapter":
