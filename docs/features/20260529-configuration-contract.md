@@ -55,7 +55,7 @@ It should not support:
 
 - `config.example.yaml` is the committed template
 - `config.local.yaml` is the user-filled local file and should remain untracked
-- `skill-indexes/local/skill-index.example.md` is the committed example artifact for local skill indexing
+- `skill-indexes/local/skill-index.example.yaml` is the committed example artifact for local skill indexing
 
 The expected user flow is:
 
@@ -83,15 +83,15 @@ That approach is less magical and avoids pretending the example file is authorit
 
 The repo should standardize on one example filename for the local skill index:
 
-- `skill-indexes/local/skill-index.example.md`
+- `skill-indexes/local/skill-index.example.yaml`
 
-This standardizes the example artifact and location without requiring config indirection.
+The runtime working file should be:
 
-Future implementation may still decide:
+- `skill-indexes/local/skill-index.yaml`
 
-- whether runtime looks for a non-example sibling file
-- whether the example file doubles as the real file format template
-- how the file is parsed or consumed
+This standardizes the example artifact, working filename, and location without requiring config indirection.
+
+The runtime should only read the non-example working file. The example exists as bootstrap and documentation material.
 
 ### Current Schema Direction
 
@@ -215,7 +215,7 @@ Checklist:
 
 - [ ] Document how adapter selection consumes `defaultHarness`.
 - [ ] Document how workflow code consumes model roles.
-- [ ] Document the conventional local skill-index filename and how it is discovered.
+- [x] Document the conventional local skill-index filename and how it is discovered.
 - [ ] Confirm that no repo-owned paths need to become configurable yet.
 
 Exit Criteria:
@@ -233,7 +233,7 @@ The first executable slice can consume config without forcing a schema redesign.
 ## Open Questions
 
 - Should environment variables exist in the first implementation, or should they wait until there is a proven need?
-- Should runtime eventually look for a concrete non-example local skill-index file alongside `skill-index.example.md`?
+- Should the local skill-index YAML schema stay intentionally small, or later grow lightweight metadata beyond the `skills` list?
 - At what point would configurable external skill directories become justified?
 - Which RTK assumptions should be shared and explicit versus ambient and environment-driven?
 

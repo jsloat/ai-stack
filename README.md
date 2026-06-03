@@ -169,4 +169,4 @@ From the core-vs-conventions perspective, the current live areas are:
 - `docs/` and `.github/` for shared guidance and compatibility
 - `skill-indexes/` for the current optional local registry artifact
 
-There is currently a standardized example artifact at `skill-indexes/local/skill-index.example.md`, aligned with the current skill-index contract.
+There is currently a standardized example artifact at `skill-indexes/local/skill-index.example.yaml`, aligned with the current skill-index contract.

@@ -2,24 +2,24 @@
 
 ## Summary
 
-Define the first contract for a local skill index in `ai-stack`. The index should be a human-readable markdown registry of external or local-only skills that this repo may use, while remaining structured enough for future tooling to discover, resolve, and trace skill loading.
+Define the first contract for a local skill index in `ai-stack`. The index should be a small YAML registry of external or local-only skills that this repo may use, while remaining simple enough to edit by hand and structured enough for future tooling to discover, resolve, and trace skill loading.
 
 ## Problem
 
-The repository now has a conventional example file for a local skill index, but there is no contract for what information the file must contain, what parts are meant for humans versus tooling, or how operational concerns like “update the source repo first” should be represented.
+The repository now has a conventional example file for a local skill index, but there is no contract for what information the file must contain, how tooling should parse it reliably, or how operational concerns like “update the source repo first” should be represented without bloating the runtime format.
 
 Without a skill index contract:
 
 - skill registries will drift in format
-- future tooling will have to parse arbitrary prose
+- future tooling will have to parse ad hoc formats
 - local operational steps will get mixed into core resolution logic
 - it will be unclear what “if present, use it; if absent, ignore it” means in practice
 
 ## Goals
 
-- Standardize the skill index as a markdown registry file.
+- Standardize the skill index as a lightweight YAML registry file.
 - Define the minimum structure future tooling should be able to extract.
-- Preserve room for optional local operational guidance such as pre-flight update steps.
+- Preserve room for optional local operational guidance without forcing it into the runtime file.
 - Keep the contract compatible with the “ignore if absent” model.
 - Separate portable registry data from local machine or team-specific procedures.
 
@@ -27,94 +27,74 @@ Without a skill index contract:
 
 - Require the engine to perform git pulls automatically.
 - Define the full runtime parser implementation.
-- Require all indexes to include frontmatter or pre-flight steps.
+- Require all indexes to include prose, frontmatter, or pre-flight steps.
 - Standardize one global update procedure for every environment.
 - Replace skill packaging or configuration contracts.
 
 ## Proposed Design
 
-The local skill index should be a markdown file that acts as both:
-
-- a registry of skills outside the shared repo
-- a local operator guide for how to use and refresh them
+The local skill index should be a small YAML file that acts as a routing registry for skills outside the shared repo.
 
 ### File Location
 
 The current conventional example artifact is:
 
-- `skill-indexes/local/skill-index.example.md`
+- `skill-indexes/local/skill-index.example.yaml`
 
-Future implementation may decide whether the runtime reads:
+The runtime working file is:
 
-- that file directly
-- or a sibling non-example file with a similar contract
+- `skill-indexes/local/skill-index.yaml`
 
-For now, the contract should focus on file structure, not final discovery mechanics.
+The runtime should only read the non-example working file. The example exists to document the shape and provide a copyable starting point.
 
 ### File Shape
 
-The index should support four layers:
+The core portable structure is a top-level `skills` list. Other top-level fields may exist for human context, but the runtime should only require the `skills` list.
 
-1. optional frontmatter
-2. human-readable overview
-3. optional operational sections such as pre-flight or update guidance
-4. a required skill registry table
+Example:
 
-### Frontmatter
+```yaml
+name: skill-index
+description: Local registry of external skills.
 
-Frontmatter is optional but recommended.
+skills:
+  - id: pull-request
+    when: Creating or updating pull requests
+    repo: ~/Dev/example-tools
+    path: .github/skills/pull-request/SKILL.md
+```
 
-Useful fields include:
+### Required Skill Entry Fields
 
-- `name`
-- `description`
+Each skill entry must contain:
 
-These fields are helpful for documentation and future tooling, but they should not be required for initial human use.
-
-### Required Registry Table
-
-The core portable structure is a markdown table with these columns:
-
-- `Skill`
-- `When to use`
-- `Source Repo`
-- `Skill Path`
+- `id`
+- `when`
+- `repo`
+- `path`
 
 Meanings:
 
-`Skill`
+`id`
 
 - short identifier for the skill
 - should generally align with the skill directory name when possible
 
-`When to use`
+`when`
 
 - trigger description for routing or manual lookup
 - should describe the kinds of tasks that should cause this skill to be consulted
 
-`Source Repo`
+`repo`
 
 - location of the repository containing the skill
 - may be a local path or another repo reference, depending on environment
 
-`Skill Path`
+`path`
 
 - path from the source repo root to the skill’s `SKILL.md`
 
-Future tooling should be able to extract registry rows even if the rest of the file contains prose it does not understand.
-
-### Optional Operational Sections
-
-The index may include local operational sections such as:
-
-- pre-flight protocol
-- update guidance
-- loading instructions
-- team-specific maintenance notes
-
-These sections are useful, and your work example shows a legitimate need for them.
-
-However, they should be treated as optional policy/content, not as a mandatory core engine contract.
+The runtime file should stay narrow. Local operational guidance such as pre-flight or refresh procedures can live in surrounding docs or local workflow notes instead of being mixed into the required machine-readable schema.
 
 ### Pre-Flight and Freshness Policy
 
@@ -134,13 +114,12 @@ Important boundaries:
 
 So the contract should permit:
 
-- human-readable pre-flight instructions
-- future structured metadata that indicates whether a source repo has an update/freshness step
+- local docs that explain pre-flight expectations
+- future lightweight metadata if update behavior later needs structure
 
 But early implementations can stop at:
 
 - parse registry entries
-- optionally record that a pre-flight section exists
 - leave execution of that procedure to a higher-level workflow or later feature
 
 ### Loading Contract
@@ -148,22 +127,24 @@ But early implementations can stop at:
 The minimum future runtime behavior should be:
 
 1. if the local skill index file is absent, continue normally
-2. if present, parse the registry table
+2. if present, parse the `skills` list
 3. resolve referenced skill locations deterministically
 4. emit a load trace when a referenced skill is selected and loaded
+
+Rows missing any required field should be skipped rather than crashing the whole lookup.
 
 The runtime does not initially need to:
 
 - execute arbitrary shell from the index
 - guarantee repo freshness
-- parse every prose section semantically
+- understand broader operational prose
 
 ## Repository Impact
 
 This feature affects:
 
 - `skill-indexes/README.md`
-- `skill-indexes/local/skill-index.example.md`
+- `skill-indexes/local/skill-index.example.yaml`
 - future skill resolution and load tracing
 - future workflow decisions about freshness/update behavior
 
@@ -183,18 +164,18 @@ Define the minimum portable structure of the index.
 Outputs:
 
 - skill index feature doc
-- required registry columns
-- distinction between required registry data and optional operational sections
+- required skill entry fields
+- distinction between required registry data and optional operational guidance
 
 Checklist:
 
-- [x] Define markdown as the source format.
-- [x] Define the required registry table columns.
-- [x] Define frontmatter as optional.
-- [x] Define operational sections such as pre-flight guidance as optional.
+- [x] Define YAML as the source format.
+- [x] Define the required skill entry fields.
+- [x] Keep non-registry top-level fields optional.
+- [x] Keep operational guidance outside the required runtime schema.
 
 Exit Criteria:
-An author can create a skill index that both humans and future tooling can understand.
+An author can create a skill index that tooling can parse reliably and humans can still edit directly.
 
 ### Phase 2: Example Alignment
 
@@ -208,8 +189,8 @@ Outputs:
 
 Checklist:
 
-- [x] Update `skill-indexes/local/skill-index.example.md` to include a realistic example registry table.
-- [x] Distinguish portable registry structure from local-only operational guidance in the example.
+- [x] Update `skill-indexes/local/skill-index.example.yaml` to include a realistic example entry.
+- [x] Keep the runtime file schema small instead of mixing in operational guidance.
 - [x] Update `skill-indexes/README.md` to reflect the new contract.
 
 Exit Criteria:
@@ -228,9 +209,9 @@ Outputs:
 
 Checklist:
 
-- [ ] Define how the runtime discovers the index file.
-- [ ] Define how registry rows are parsed and validated.
-- [ ] Define how missing or invalid rows are handled.
+- [x] Define how the runtime discovers the index file.
+- [x] Define how registry rows are parsed and validated.
+- [x] Define how missing or invalid rows are handled.
 - [ ] Define how load traces report index-driven skill resolution.
 - [ ] Decide whether freshness/update behavior is only documented, or later becomes a structured optional capability.
 
@@ -239,22 +220,21 @@ Future tooling can consume the index reliably while leaving environment-specific
 
 ## Acceptance Criteria
 
-- The repo defines a clear markdown-based skill index contract.
-- Required portable structure is separated from optional local operational guidance.
+- The repo defines a clear YAML-based skill index contract.
+- Required portable structure stays small and separate from optional operational guidance.
 - The contract supports your work-laptop style pre-flight/update instructions without making them universal engine requirements.
 - Future runtime behavior can ignore a missing index and still operate normally.
 - Registry entries contain enough information to resolve a skill deterministically.
 
 ## Open Questions
 
-- Should the eventual real runtime file use the same filename as the example file, or a sibling non-example file?
 - Should freshness/update guidance remain prose-only, or later gain lightweight structured metadata?
 - Should shared indexes ever exist, and if so, should they be allowed to carry update procedures too?
 - Should the engine ever execute pre-flight/update steps directly, or should that remain a workflow-layer concern?
 
 ## Follow-Up Work
 
-- Update `skill-indexes/local/skill-index.example.md` to reflect this contract.
+- Update `skill-indexes/local/skill-index.example.yaml` to reflect this contract.
 - Update `skill-indexes/README.md` to reflect this contract.
 - Use this contract when defining the first load-trace-based skill resolution tests.
 - Revisit freshness/update behavior after the first executable slice exists.

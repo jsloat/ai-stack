@@ -1,0 +1,8 @@
+name: skill-index
+description: Local registry of skills that live outside this repository.
+
+skills:
+  - id: pull-request
+    when: Creating or updating pull requests, drafting descriptions, or organizing testing evidence
+    repo: ~/Dev/example-tools
+    path: .github/skills/pull-request/SKILL.md

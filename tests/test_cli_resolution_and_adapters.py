@@ -64,25 +64,44 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["status"], "skipped")
         self.assertFalse(trace["adapter"]["attempted"])
 
+    def test_example_index_is_not_used_as_runtime_input(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "skill-indexes" / "local").mkdir(parents=True)
+            (root / "skill-indexes" / "local" / "skill-index.example.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    skills:
+                      - id: pull-request
+                        when: Example fallback index
+                        repo: .
+                        path: skills/example/SKILL.md
+                    """
+                )
+            )
+
+            result = self.run_cli(root, "pull-request")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["skillIndex"]["path"], "skill-indexes/local/skill-index.yaml")
+        self.assertFalse(trace["skillIndex"]["found"])
+        self.assertFalse(trace["resolution"]["matched"])
+
     def test_skill_resolves_from_local_index(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / "skill-indexes" / "local").mkdir(parents=True)
-            (root / "skill-indexes" / "local" / "skill-index.example.md").write_text(
+            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(
                 textwrap.dedent(
                     """\
-                    ---
                     name: skill-index
                     description: Test index
-                    ---
-
-                    # Local Skill Index
-
-                    ## Skill Registry
-
-                    | Skill | When to use | Source Repo | Skill Path |
-                    |-------|-------------|-------------|------------|
-                    | `pull-request` | Creating pull requests | `~/Dev/example-tools` | `.github/skills/pull-request/SKILL.md` |
+                    skills:
+                      - id: pull-request
+                        when: Creating pull requests
+                        repo: ~/Dev/example-tools
+                        path: .github/skills/pull-request/SKILL.md
                     """
                 )
             )
@@ -128,16 +147,14 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / "skill-indexes" / "local").mkdir(parents=True)
-            (root / "skill-indexes" / "local" / "skill-index.example.md").write_text(
+            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(
                 textwrap.dedent(
                     """\
-                    # Local Skill Index
-
-                    ## Skill Registry
-
-                    | Skill | When to use | Source Repo | Skill Path |
-                    |-------|-------------|-------------|------------|
-                    | `incident-review` | Reviewing incidents | `~/Dev/local-ops-skills` | `skills/incident-review/SKILL.md` |
+                    skills:
+                      - id: incident-review
+                        when: Reviewing incidents
+                        repo: ~/Dev/local-ops-skills
+                        path: skills/incident-review/SKILL.md
                     """
                 )
             )
@@ -342,16 +359,18 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / "skill-indexes" / "local").mkdir(parents=True)
-            (root / "skill-indexes" / "local" / "skill-index.example.md").write_text(
+            (root / "skills" / "pull-request").mkdir(parents=True)
+            (root / "skills" / "pull-request" / "SKILL.md").write_text(
+                "# Pull Request Skill\n\nSKILL SENTINEL\n"
+            )
+            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(
                 textwrap.dedent(
                     """\
-                    # Local Skill Index
-
-                    ## Skill Registry
-
-                    | Skill | When to use | Source Repo | Skill Path |
-                    |-------|-------------|-------------|------------|
-                    | `pull-request` | Creating pull requests | `~/Dev/example-tools` | `.github/skills/pull-request/SKILL.md` |
+                    skills:
+                      - id: pull-request
+                        when: Creating pull requests
+                        repo: .
+                        path: skills/pull-request/SKILL.md
                     """
                 )
             )
@@ -418,7 +437,9 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["selected"], "codex")
         self.assertEqual(trace["adapter"]["mode"], "live")
         self.assertEqual(trace["adapter"]["status"], "completed")
-        self.assertEqual(trace["adapter"]["resultText"], "RUN SKILL OK\nARGS:exec Reply with OK")
+        self.assertIn("RUN SKILL OK", trace["adapter"]["resultText"])
+        self.assertIn("SKILL SENTINEL", trace["adapter"]["resultText"])
+        self.assertIn("Reply with OK", trace["adapter"]["resultText"])
 
     def test_run_skill_returns_not_found_without_live_adapter_attempt(self):
         with tempfile.TemporaryDirectory() as tmpdir:
