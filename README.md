@@ -119,6 +119,7 @@ The runtime also now has:
 
 - dry-run adapter routing for `codex` and `copilot`
 - a live `codex` adapter smoke path via `python3 bin/ai-stack adapter codex --prompt "Reply with OK"`
+- an end-to-end skill execution path via `python3 bin/ai-stack run-skill <skill-name> --prompt "..."`
 - normalized adapter result output with debug traces separated from primary result text
 
 ## Agent Guidance

@@ -35,6 +35,19 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             env=env,
         )
 
+    def run_skill_cli(self, cwd: Path, skill: str, prompt: str, extra_env=None):
+        env = os.environ.copy()
+        if extra_env is not None:
+            env.update(extra_env)
+        return subprocess.run(
+            [sys.executable, str(CLI_PATH), "run-skill", skill, "--prompt", prompt],
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+
     def test_absent_local_config_and_index_are_clean_no_ops(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.run_cli(Path(tmpdir), "pull-request")
@@ -324,6 +337,100 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "codex")
         self.assertEqual(trace["adapter"]["details"]["harness"]["command"], "codex")
         self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
+
+    def test_run_skill_executes_resolved_skill_with_live_adapter(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "skill-indexes" / "local").mkdir(parents=True)
+            (root / "skill-indexes" / "local" / "skill-index.example.md").write_text(
+                textwrap.dedent(
+                    """\
+                    # Local Skill Index
+
+                    ## Skill Registry
+
+                    | Skill | When to use | Source Repo | Skill Path |
+                    |-------|-------------|-------------|------------|
+                    | `pull-request` | Creating pull requests | `~/Dev/example-tools` | `.github/skills/pull-request/SKILL.md` |
+                    """
+                )
+            )
+            (root / "config.local.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    defaultHarness: codex
+
+                    models:
+                      planner: sonnet
+                      implementer: gpt-5.5
+                      cheapVerifier: gpt-5.5-mini
+
+                    telemetry:
+                      enabled: false
+                    """
+                )
+            )
+
+            path_dir = root / "bin"
+            path_dir.mkdir()
+            fake_rtk = path_dir / "rtk"
+            fake_rtk.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import subprocess
+                    import sys
+
+                    proc = subprocess.run(sys.argv[2:], capture_output=True, text=True, check=False)
+                    sys.stdout.write(proc.stdout)
+                    sys.stderr.write(proc.stderr)
+                    sys.exit(proc.returncode)
+                    """
+                )
+            )
+            fake_rtk.chmod(0o755)
+            fake_codex = path_dir / "codex"
+            fake_codex.write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env python3
+                    import sys
+                    print("RUN SKILL OK")
+                    print("ARGS:" + " ".join(sys.argv[1:]))
+                    """
+                )
+            )
+            fake_codex.chmod(0o755)
+
+            result = self.run_skill_cli(
+                root,
+                "pull-request",
+                "Reply with OK",
+                extra_env={
+                    "PATH": f"{path_dir}:/usr/bin:/bin:/opt/homebrew/bin",
+                },
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertTrue(trace["resolution"]["matched"])
+        self.assertEqual(trace["resolution"]["requestedSkill"], "pull-request")
+        self.assertEqual(trace["adapter"]["selected"], "codex")
+        self.assertEqual(trace["adapter"]["mode"], "live")
+        self.assertEqual(trace["adapter"]["status"], "completed")
+        self.assertEqual(trace["adapter"]["resultText"], "RUN SKILL OK\nARGS:exec Reply with OK")
+
+    def test_run_skill_returns_not_found_without_live_adapter_attempt(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            result = self.run_skill_cli(root, "pull-request", "Reply with OK")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertFalse(trace["resolution"]["matched"])
+        self.assertEqual(trace["adapter"]["mode"], "dry-run")
+        self.assertEqual(trace["adapter"]["status"], "skipped")
+        self.assertFalse(trace["adapter"]["attempted"])
 
 
 if __name__ == "__main__":

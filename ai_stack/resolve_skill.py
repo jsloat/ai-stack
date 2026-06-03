@@ -168,11 +168,26 @@ def resolve_skill(root: Path, skill_name: str) -> Dict[str, Any]:
     }
 
 
+def run_skill(root: Path, skill_name: str, prompt: str) -> Dict[str, Any]:
+    trace = resolve_skill(root, skill_name)
+    if not trace["resolution"]["matched"]:
+        return trace
+
+    trace["adapter"] = run_adapter_live(
+        trace["config"]["effective"]["defaultHarness"],
+        prompt,
+    )
+    return trace
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="ai-stack")
     subparsers = parser.add_subparsers(dest="command", required=True)
     resolve_parser = subparsers.add_parser("resolve-skill")
     resolve_parser.add_argument("skill")
+    run_skill_parser = subparsers.add_parser("run-skill")
+    run_skill_parser.add_argument("skill")
+    run_skill_parser.add_argument("--prompt", required=True)
     adapter_parser = subparsers.add_parser("adapter")
     adapter_parser.add_argument("harness")
     adapter_parser.add_argument("--prompt", required=True)
@@ -183,6 +198,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         trace = resolve_skill(Path.cwd(), args.skill)
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["resolution"]["matched"] else 1
+    if args.command == "run-skill":
+        trace = run_skill(Path.cwd(), args.skill, args.prompt)
+        print(json.dumps(trace, indent=2, sort_keys=True))
+        return 0 if trace["adapter"]["status"] == "completed" else 1
     if args.command == "adapter":
         trace = {
             "adapter": run_adapter_live(args.harness, args.prompt),
