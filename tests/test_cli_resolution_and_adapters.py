@@ -592,7 +592,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         trace = json.loads(result.stdout)
-        self.assertTrue(trace["source"]["exists"])
+        self.assertTrue(any(root_entry["exists"] for root_entry in trace["source"]["roots"]))
         self.assertEqual(trace["summary"]["sourceSkills"], 2)
         self.assertEqual(trace["summary"]["install"], 2)
         self.assertEqual(trace["summary"]["unknownInstalled"], 1)
@@ -606,6 +606,10 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             ["install", "install"],
         )
         self.assertEqual(trace["installed"]["unknown"][0]["name"], "legacy-skill")
+        self.assertEqual(
+            [skill["scope"] for skill in trace["source"]["skills"]],
+            ["local", "local"],
+        )
 
     def test_sync_skills_dry_run_blocks_unknown_collision(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
@@ -755,6 +759,33 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["applied"], 1)
         self.assertFalse(installed_dir.exists())
         self.assertEqual(len(backup_skill_files), 1)
+
+    def test_sync_skills_apply_installs_shared_skill(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "skills" / "shared" / "skill-creator"
+            source_dir.mkdir(parents=True)
+            (source_dir / "SKILL.md").write_text("# Skill Creator\n")
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                apply=True,
+                installed_skills_dir=home / ".codex" / "skills",
+                backup_root=home / ".codex" / "skills-sync-backups",
+            )
+
+            installed_dir = home / ".codex" / "skills" / "skill-creator"
+            marker = json.loads((installed_dir / ".ai-stack-skill.json").read_text())
+            installed_skill_exists = (installed_dir / "SKILL.md").exists()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["applied"], 1)
+        self.assertTrue(installed_skill_exists)
+        self.assertEqual(marker["managedBy"], "ai-stack")
+        self.assertEqual(marker["sourcePath"], "skills/shared/skill-creator")
 
 
 if __name__ == "__main__":

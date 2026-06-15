@@ -234,9 +234,9 @@ The repo can explain exactly what sync would do without modifying Codex skills.
 
 Current source decision:
 
-- the first sync implementation should treat `skills/local/<skill-name>/` as the source of repo-local user-managed skills
-- `skills/shared/` now exists for committed repo-owned skills, but current sync behavior still intentionally limits the source set to `skills/local/`
-- expanding sync to include `skills/shared/` is future work once the shared-skill workflow is better defined
+- the sync source set should include both `skills/local/<skill-name>/` and `skills/shared/<skill-name>/`
+- `skills/local/` remains the place for gitignored machine-specific skills
+- `skills/shared/` remains the place for committed repo-owned skills
 
 ### Phase 3: Apply Mode
 
@@ -252,12 +252,12 @@ Outputs:
 
 Checklist:
 
-- [ ] Implement install of new repo-owned skills.
-- [ ] Implement managed update behavior.
-- [ ] Implement backup creation before replacement.
-- [ ] Implement managed-skill removal after backup when absent from source.
-- [ ] Block unknown collisions by default.
-- [ ] Add tests for idempotent second-run behavior.
+- [x] Implement install of new repo-owned skills.
+- [x] Implement managed update behavior.
+- [x] Implement backup creation before replacement.
+- [x] Implement managed-skill removal after backup when absent from source.
+- [x] Block unknown collisions by default.
+- [x] Add tests for idempotent second-run behavior.
 
 Exit Criteria:
 Repeated sync runs are safe and deterministic.

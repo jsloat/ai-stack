@@ -9,7 +9,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
-LOCAL_SKILLS_ROOT = Path("skills/local")
+SKILL_SOURCE_ROOTS = (
+    ("local", Path("skills/local")),
+    ("shared", Path("skills/shared")),
+)
 AI_STACK_MARKER = ".ai-stack-skill.json"
 BACKUP_ROOT = Path.home() / ".codex" / "skills-sync-backups"
 
@@ -17,12 +20,16 @@ BACKUP_ROOT = Path.home() / ".codex" / "skills-sync-backups"
 @dataclass(frozen=True)
 class RepoSkill:
     name: str
+    scope: str
+    source_root: Path
     directory: Path
     skill_file: Path
 
     def to_dict(self, root: Path) -> Dict[str, str]:
         return {
             "name": self.name,
+            "scope": self.scope,
+            "sourceRoot": str(self.source_root),
             "directory": str(self.directory.relative_to(root)),
             "skillFile": str(self.skill_file.relative_to(root)),
         }
@@ -48,19 +55,27 @@ def codex_user_skills_dir() -> Path:
     return Path.home() / ".codex" / "skills"
 
 
-def discover_repo_local_skills(root: Path) -> List[RepoSkill]:
-    skills_root = root / LOCAL_SKILLS_ROOT
-    if not skills_root.exists():
-        return []
-
+def discover_repo_skills(root: Path) -> List[RepoSkill]:
     skills: List[RepoSkill] = []
-    for child in sorted(skills_root.iterdir()):
-        if not child.is_dir():
+    for scope, source_root in SKILL_SOURCE_ROOTS:
+        skills_root = root / source_root
+        if not skills_root.exists():
             continue
-        skill_file = child / "SKILL.md"
-        if not skill_file.exists():
-            continue
-        skills.append(RepoSkill(name=child.name, directory=child, skill_file=skill_file))
+        for child in sorted(skills_root.iterdir()):
+            if not child.is_dir():
+                continue
+            skill_file = child / "SKILL.md"
+            if not skill_file.exists():
+                continue
+            skills.append(
+                RepoSkill(
+                    name=child.name,
+                    scope=scope,
+                    source_root=source_root,
+                    directory=child,
+                    skill_file=skill_file,
+                )
+            )
     return skills
 
 
@@ -96,7 +111,7 @@ def discover_installed_codex_skills(skills_dir: Optional[Path] = None) -> List[I
 
 
 def build_sync_plan(root: Path, installed_skills_dir: Optional[Path] = None) -> Dict[str, Any]:
-    repo_skills = discover_repo_local_skills(root)
+    repo_skills = discover_repo_skills(root)
     installed_root = installed_skills_dir or codex_user_skills_dir()
     installed = discover_installed_codex_skills(installed_root)
     installed_by_name = {skill.name: skill for skill in installed}
@@ -163,8 +178,14 @@ def build_sync_plan(root: Path, installed_skills_dir: Optional[Path] = None) -> 
     return {
         "mode": "dry-run",
         "source": {
-            "root": str((root / LOCAL_SKILLS_ROOT).resolve()),
-            "exists": (root / LOCAL_SKILLS_ROOT).exists(),
+            "roots": [
+                {
+                    "scope": scope,
+                    "path": str((root / source_root).resolve()),
+                    "exists": (root / source_root).exists(),
+                }
+                for scope, source_root in SKILL_SOURCE_ROOTS
+            ],
             "skills": [skill.to_dict(root) for skill in repo_skills],
         },
         "installed": {
@@ -185,7 +206,7 @@ def apply_sync_plan(root: Path, installed_skills_dir: Optional[Path] = None, bac
     backup_run_root = backup_base / applied_at
     results: List[Dict[str, Any]] = []
 
-    repo_skills = {skill.name: skill for skill in discover_repo_local_skills(root)}
+    repo_skills = {skill.name: skill for skill in discover_repo_skills(root)}
     installed_root.mkdir(parents=True, exist_ok=True)
 
     for action in plan["actions"]:

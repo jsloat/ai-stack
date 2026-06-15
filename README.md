@@ -201,17 +201,16 @@ The first tracked shared skill is:
 
 Imported upstream skills may carry a small provenance file so future refresh/update tooling can determine where they came from without relying on commit archaeology.
 
-`skills/local/` is also the current source of truth for native Codex skill sync. The current model is:
+Repo-owned skills are now the current source of truth for native Codex skill sync. The current model is:
 
 - author or store local-only skills under `skills/local/<skill-name>/`
+- commit shareable skills under `skills/shared/<skill-name>/`
 - inspect planned native Codex changes with `python3 bin/ai-stack sync-skills --dry-run`
 - apply them with `python3 bin/ai-stack sync-skills --apply`
 
-Tracked shared skills under `skills/shared/` are part of the committed repo contract, but they are not yet included in the current Codex sync source set.
-
 Deletion propagation is conservative:
 
-- if a skill disappears from `skills/local/` and the installed Codex copy was previously managed by `ai-stack`, apply mode backs it up and removes it
+- if a skill disappears from the repo-owned skill source set and the installed Codex copy was previously managed by `ai-stack`, apply mode backs it up and removes it
 - if a skill under `~/.codex/skills/` was not previously managed by `ai-stack`, sync only reports it and never removes it automatically
 
 The current intended model is one conventional local index file that points to multiple external or local-only skills. If that file exists, future tooling can incorporate it. If it does not exist, the repo should proceed without error.
