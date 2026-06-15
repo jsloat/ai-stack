@@ -38,6 +38,9 @@ ai-stack/
     repository-structure.md
   skill-indexes/
     local/
+  skills/
+    local/
+    shared/
   ai_stack/
   tests/
   bin/
@@ -120,6 +123,8 @@ The runtime also now has:
 - dry-run adapter routing for `codex` and `copilot`
 - a live `codex` adapter smoke path via `python3 bin/ai-stack adapter codex --prompt "Reply with OK"`
 - an end-to-end skill execution path via `python3 bin/ai-stack run-skill <skill-name> --prompt "..."`
+- a dry-run native Codex sync planner via `python3 bin/ai-stack sync-skills --dry-run`
+- an apply mode via `python3 bin/ai-stack sync-skills --apply`
 - normalized adapter result output with debug traces separated from primary result text
 
 Current config also supports:
@@ -176,11 +181,38 @@ The current repository keeps only a small number of real top-level directories:
 - `bin/` for CLI entrypoints
 - `docs/` for shared design and structure docs
 - `skill-indexes/` for the current local index convention
+- `skills/` for repo-local skill packages
 - `tests/` for runtime tests
 
-Planned areas such as `skills/`, `memory/`, `telemetry/`, and `model-benchmarks/` are still part of the design, but they should not exist as top-level directories until they contain real assets.
+Planned areas such as `memory/`, `telemetry/`, and `model-benchmarks/` are still part of the design, but they should not exist as top-level directories until they contain real assets.
 
 For `skill-indexes/`, the currently justified use case is local-only curation: private or global skill references that a user wants this repo to know about. Shared committed indexes should be added only if the repo later needs curated bundles of repo-owned skills.
+
+For `skills/`, there are now two justified uses:
+
+- `skills/local/` for gitignored, machine-specific or personal skills
+- `skills/shared/` for committed, shareable skills that belong to the repo contract
+
+`skills/local/` is intentionally gitignored so personal or machine-specific skills can live in the repo without becoming part of the committed contract.
+
+The first tracked shared skill is:
+
+- `skills/shared/skill-creator/`
+
+Imported upstream skills may carry a small provenance file so future refresh/update tooling can determine where they came from without relying on commit archaeology.
+
+`skills/local/` is also the current source of truth for native Codex skill sync. The current model is:
+
+- author or store local-only skills under `skills/local/<skill-name>/`
+- inspect planned native Codex changes with `python3 bin/ai-stack sync-skills --dry-run`
+- apply them with `python3 bin/ai-stack sync-skills --apply`
+
+Tracked shared skills under `skills/shared/` are part of the committed repo contract, but they are not yet included in the current Codex sync source set.
+
+Deletion propagation is conservative:
+
+- if a skill disappears from `skills/local/` and the installed Codex copy was previously managed by `ai-stack`, apply mode backs it up and removes it
+- if a skill under `~/.codex/skills/` was not previously managed by `ai-stack`, sync only reports it and never removes it automatically
 
 The current intended model is one conventional local index file that points to multiple external or local-only skills. If that file exists, future tooling can incorporate it. If it does not exist, the repo should proceed without error.
 

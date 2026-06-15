@@ -177,10 +177,11 @@ Outputs:
 
 Checklist:
 
-- [ ] Update shared structure docs to reflect the packaging contract once `skills/` becomes a real directory.
-- [ ] Add a minimal example shared skill package.
+- [x] Update shared structure docs to reflect the packaging contract once `skills/` becomes a real directory.
+- [x] Add a minimal example shared skill package.
 - [ ] Add a minimal example local skill package if useful.
 - [ ] Define when a simple `SKILL.md` is enough versus when a richer package is justified.
+- [ ] Add a future shared meta-skill for updating `ai-stack` guidance and behavior placement once the shared skill surface is ready.
 
 Exit Criteria:
 A contributor can author a new skill consistently from repo docs alone.
@@ -219,6 +220,7 @@ Future tooling can consume skill packages without special-casing every skill.
 - Should a skill package eventually include a small metadata file in addition to `SKILL.md`, or is markdown alone enough for early stages?
 - Should example skill skeletons be committed now, or only once the skill index contract exists?
 - How much harness-specific translation, if any, should be encoded in the package versus handled entirely by adapters?
+- Should `ai-stack` eventually ship a shared governance/meta skill that interprets requests like “change how this repo behaves in future sessions” and routes them to `AGENTS.md`, `README.md`, feature docs, or harness-specific shims appropriately?
 
 ## Follow-Up Work
 
@@ -226,3 +228,5 @@ Future tooling can consume skill packages without special-casing every skill.
 - Draft the skill index contract.
 - Add one or two example skill packages once the repo is ready to demonstrate authoring patterns.
 - Use this contract to guide the first runtime skill discovery implementation.
+- Design a shared repo-maintenance skill that can classify behavior-change requests and update the correct durable surface without duplicating rules across docs and instruction files.
+- Define how tracked shared skills imported from upstream repositories should be refreshed, reviewed, and version-pinned over time.

@@ -20,6 +20,8 @@ If a future area is still mostly design, document it in `docs/` and add the actu
   Shared design and structure documentation.
 - `skill-indexes/`
   Local skill-index conventions and example artifacts consumed by the current runtime.
+- `skills/`
+  Repo-local and shared skill packages. This is now justified by real user-managed skill content under `skills/local/` and tracked shared skill content under `skills/shared/`.
 - `tests/`
   Runtime tests.
 
@@ -27,7 +29,6 @@ If a future area is still mostly design, document it in `docs/` and add the actu
 
 These concepts still exist, but they should be added as real top-level directories only when they contain actual content:
 
-- `skills/`
 - `agents/`
 - `dashboard/`
 - `memory/`

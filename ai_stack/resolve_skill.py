@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from ai_stack.adapter_contract import AdapterDetails, AdapterResult
 from ai_stack.adapters import run_adapter_dry_mode, run_adapter_live
+from ai_stack.skill_sync import apply_sync_plan, build_sync_plan
 
 
 DEFAULT_CONFIG = {
@@ -354,6 +355,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     run_skill_parser.add_argument("skill")
     run_skill_parser.add_argument("--prompt", required=True)
     run_skill_parser.add_argument("--root", type=Path)
+    sync_skills_parser = subparsers.add_parser("sync-skills")
+    sync_skills_parser.add_argument("--dry-run", action="store_true")
+    sync_skills_parser.add_argument("--apply", action="store_true")
+    sync_skills_parser.add_argument("--root", type=Path)
+    sync_skills_parser.add_argument("--installed-skills-dir", type=Path, help=argparse.SUPPRESS)
+    sync_skills_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
     adapter_parser = subparsers.add_parser("adapter")
     adapter_parser.add_argument("harness")
     adapter_parser.add_argument("--prompt", required=True)
@@ -386,6 +393,21 @@ def main(argv: Optional[List[str]] = None) -> int:
         }
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["adapter"]["status"] == "completed" else 1
+    if args.command == "sync-skills":
+        if args.dry_run and args.apply:
+            parser.error("sync-skills accepts only one of --dry-run or --apply")
+        if not args.dry_run and not args.apply:
+            parser.error("sync-skills requires --dry-run or --apply")
+        root = args.root.resolve() if args.root is not None else infer_repo_root()
+        installed_skills_dir = args.installed_skills_dir.resolve() if args.installed_skills_dir is not None else None
+        backup_root = args.backup_root.resolve() if args.backup_root is not None else None
+        trace = (
+            build_sync_plan(root, installed_skills_dir=installed_skills_dir)
+            if args.dry_run
+            else apply_sync_plan(root, installed_skills_dir=installed_skills_dir, backup_root=backup_root)
+        )
+        print(json.dumps(trace, indent=2, sort_keys=True))
+        return 0
 
     parser.error("Unsupported command")
     return 2

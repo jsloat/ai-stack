@@ -68,6 +68,34 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             env=env,
         )
 
+    def run_sync_cli(
+        self,
+        cwd: Path,
+        extra_env=None,
+        root: Optional[Path] = None,
+        apply: bool = False,
+        installed_skills_dir: Optional[Path] = None,
+        backup_root: Optional[Path] = None,
+    ):
+        env = os.environ.copy()
+        if extra_env is not None:
+            env.update(extra_env)
+        cmd = [sys.executable, str(CLI_PATH), "sync-skills", "--apply" if apply else "--dry-run"]
+        if root is not None:
+            cmd.extend(["--root", str(root)])
+        if installed_skills_dir is not None:
+            cmd.extend(["--installed-skills-dir", str(installed_skills_dir)])
+        if backup_root is not None:
+            cmd.extend(["--backup-root", str(backup_root)])
+        return subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+
     def test_absent_local_config_and_index_are_clean_no_ops(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.run_cli(Path(tmpdir), "pull-request", root=Path(tmpdir))
@@ -544,6 +572,189 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         trace = json.loads(result.stdout)
         self.assertTrue(trace["skillIndex"]["found"])
         self.assertTrue(trace["resolution"]["matched"])
+
+    def test_sync_skills_dry_run_reports_installs_and_unknown_installed(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (root / "skills" / "local" / "todoist-cli").mkdir(parents=True)
+            (root / "skills" / "local" / "todoist-cli" / "SKILL.md").write_text("# Todoist\n")
+            (root / "skills" / "local" / "scriptable-handoff").mkdir(parents=True)
+            (root / "skills" / "local" / "scriptable-handoff" / "SKILL.md").write_text("# Scriptable\n")
+            (home / ".codex" / "skills" / "legacy-skill").mkdir(parents=True)
+            (home / ".codex" / "skills" / "legacy-skill" / "SKILL.md").write_text("# Legacy\n")
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                installed_skills_dir=home / ".codex" / "skills",
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertTrue(trace["source"]["exists"])
+        self.assertEqual(trace["summary"]["sourceSkills"], 2)
+        self.assertEqual(trace["summary"]["install"], 2)
+        self.assertEqual(trace["summary"]["unknownInstalled"], 1)
+        self.assertEqual(trace["summary"]["unknownCollision"], 0)
+        self.assertEqual(
+            [action["skill"] for action in trace["actions"]],
+            ["scriptable-handoff", "todoist-cli"],
+        )
+        self.assertEqual(
+            [action["action"] for action in trace["actions"]],
+            ["install", "install"],
+        )
+        self.assertEqual(trace["installed"]["unknown"][0]["name"], "legacy-skill")
+
+    def test_sync_skills_dry_run_blocks_unknown_collision(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (root / "skills" / "local" / "todoist-cli").mkdir(parents=True)
+            (root / "skills" / "local" / "todoist-cli" / "SKILL.md").write_text("# Repo Todoist\n")
+            (home / ".codex" / "skills" / "todoist-cli").mkdir(parents=True)
+            (home / ".codex" / "skills" / "todoist-cli" / "SKILL.md").write_text("# Installed Todoist\n")
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                installed_skills_dir=home / ".codex" / "skills",
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["sourceSkills"], 1)
+        self.assertEqual(trace["summary"]["unknownCollision"], 1)
+        self.assertEqual(trace["actions"][0]["skill"], "todoist-cli")
+        self.assertEqual(trace["actions"][0]["action"], "unknown-collision")
+
+    def test_sync_skills_dry_run_skips_unchanged_managed_skill(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "skills" / "local" / "todoist-cli"
+            source_dir.mkdir(parents=True)
+            source_skill = source_dir / "SKILL.md"
+            source_skill.write_text("# Todoist\n")
+
+            installed_dir = home / ".codex" / "skills" / "todoist-cli"
+            installed_dir.mkdir(parents=True)
+            (installed_dir / "SKILL.md").write_text("# Todoist\n")
+            (installed_dir / ".ai-stack-skill.json").write_text(
+                json.dumps(
+                    {
+                        "managedBy": "ai-stack",
+                        "sourcePath": "skills/local/todoist-cli",
+                        "syncedAt": "2026-06-12T00:00:00Z",
+                    }
+                )
+            )
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                installed_skills_dir=home / ".codex" / "skills",
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["skip"], 1)
+        self.assertEqual(trace["summary"]["update"], 0)
+        self.assertEqual(trace["actions"][0]["action"], "skip")
+        self.assertEqual(trace["installed"]["managed"][0]["name"], "todoist-cli")
+
+    def test_sync_skills_dry_run_reports_remove_for_managed_skill_missing_from_source(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            installed_dir = home / ".codex" / "skills" / "todoist-cli"
+            installed_dir.mkdir(parents=True)
+            (installed_dir / "SKILL.md").write_text("# Todoist\n")
+            (installed_dir / ".ai-stack-skill.json").write_text(
+                json.dumps(
+                    {
+                        "managedBy": "ai-stack",
+                        "sourcePath": "skills/local/todoist-cli",
+                        "syncedAt": "2026-06-12T00:00:00Z",
+                    }
+                )
+            )
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                installed_skills_dir=home / ".codex" / "skills",
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["remove"], 1)
+        self.assertEqual(trace["actions"][0]["action"], "remove")
+        self.assertEqual(trace["actions"][0]["skill"], "todoist-cli")
+
+    def test_sync_skills_apply_installs_local_skills_and_writes_marker(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "skills" / "local" / "todoist-cli"
+            source_dir.mkdir(parents=True)
+            (source_dir / "SKILL.md").write_text("# Todoist\n")
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                apply=True,
+                installed_skills_dir=home / ".codex" / "skills",
+                backup_root=home / ".codex" / "skills-sync-backups",
+            )
+
+            installed_dir = home / ".codex" / "skills" / "todoist-cli"
+            marker = json.loads((installed_dir / ".ai-stack-skill.json").read_text())
+            installed_skill_exists = (installed_dir / "SKILL.md").exists()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["mode"], "apply")
+        self.assertEqual(trace["summary"]["applied"], 1)
+        self.assertTrue(installed_skill_exists)
+        self.assertEqual(marker["managedBy"], "ai-stack")
+        self.assertEqual(marker["sourcePath"], "skills/local/todoist-cli")
+
+    def test_sync_skills_apply_removes_managed_skill_with_backup_when_missing_from_source(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            installed_dir = home / ".codex" / "skills" / "todoist-cli"
+            installed_dir.mkdir(parents=True)
+            (installed_dir / "SKILL.md").write_text("# Todoist\n")
+            (installed_dir / ".ai-stack-skill.json").write_text(
+                json.dumps(
+                    {
+                        "managedBy": "ai-stack",
+                        "sourcePath": "skills/local/todoist-cli",
+                        "syncedAt": "2026-06-12T00:00:00Z",
+                    }
+                )
+            )
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                apply=True,
+                installed_skills_dir=home / ".codex" / "skills",
+                backup_root=home / ".codex" / "skills-sync-backups",
+            )
+
+            backup_root = home / ".codex" / "skills-sync-backups"
+            backup_skill_files = list(backup_root.glob("*/todoist-cli/SKILL.md"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["remove"], 1)
+        self.assertEqual(trace["summary"]["applied"], 1)
+        self.assertFalse(installed_dir.exists())
+        self.assertEqual(len(backup_skill_files), 1)
 
 
 if __name__ == "__main__":
