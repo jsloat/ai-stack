@@ -17,7 +17,7 @@ The intended model is:
 Without a sync contract:
 
 - repo-owned skills have no native Codex install path
-- `run-skill` remains a temporary workaround
+- skill usage would fall back to non-native prompt injection paths
 - existing user skills could be overwritten unsafely
 - repeat sync runs could behave inconsistently
 
@@ -159,13 +159,11 @@ Rules:
 
 This makes the repo-local skill tree the source of truth for managed skills while preserving safety for unrelated user-installed skills.
 
-### Relationship to `run-skill`
+### Relationship to Prompt Injection
 
-`run-skill` should be treated as a temporary bridge.
+Prompt-injected skill execution was only a temporary bridge.
 
-Once Codex-native sync exists and works for repo-owned skills plus the top-level index-skill pattern, `run-skill` can be deprecated and then removed.
-
-It should not be deleted before the native sync path exists.
+Now that Codex-native sync exists and the top-level index-router pattern works in fresh sessions, the prompt-injection `run-skill` path should be removed rather than kept as a parallel execution mode.
 
 ## Repository Impact
 
@@ -176,7 +174,7 @@ This feature affects:
 - tests
 - config docs
 - skill packaging expectations
-- future removal of `run-skill`
+- removal of prompt-injection skill execution
 
 It also intersects with:
 
@@ -271,14 +269,14 @@ Outputs:
 
 - one native skill that instructs Codex how to use the external skill registry pattern
 - updated guidance for local skill index usage
-- a clear deprecation path for `run-skill`
+- removal of the temporary prompt-injection bridge
 
 Checklist:
 
 - [x] Define the top-level native routing/index skill.
 - [x] Decide how external skill references are surfaced from that skill.
-- [ ] Validate the native experience manually with Codex.
-- [ ] Deprecate `run-skill`.
+- [x] Validate the native experience manually with Codex.
+- [x] Remove `run-skill`.
 
 Exit Criteria:
 Repo-owned skill behavior can be exercised natively through Codex skill discovery.
@@ -299,7 +297,7 @@ Current Phase 4 decision:
 - Unknown collisions are blocked by default.
 - Backup behavior and location are clearly defined.
 - Unknown installed skills are reported.
-- The design leaves room to remove `run-skill` only after native sync exists.
+- Native skill use does not depend on prompt-injected `run-skill` execution.
 
 ## Open Questions
 
@@ -314,4 +312,3 @@ Current Phase 4 decision:
 - Decide the ownership marker file format.
 - Add Codex sync tests before touching installed skills.
 - Design the native top-level routing/index skill.
-- Remove `run-skill` only after native sync is working.

@@ -123,7 +123,7 @@ telemetry:
 - maps stable execution roles to model ids
 - roles should remain semantic, not task-specific
 - early roles such as `planner`, `implementer`, and `cheapVerifier` are acceptable
-- current implementation uses `implementer` for live execution commands such as `run-skill` and `adapter codex`
+- current implementation uses `implementer` for live execution commands such as `adapter codex`
 
 `yolo`
 

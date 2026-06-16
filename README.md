@@ -122,7 +122,6 @@ The runtime also now has:
 
 - dry-run adapter routing for `codex` and `copilot`
 - a live `codex` adapter smoke path via `python3 bin/ai-stack adapter codex --prompt "Reply with OK"`
-- an end-to-end skill execution path via `python3 bin/ai-stack run-skill <skill-name> --prompt "..."`
 - a dry-run native Codex sync planner via `python3 bin/ai-stack sync-skills --dry-run`
 - an apply mode via `python3 bin/ai-stack sync-skills --apply`
 - normalized adapter result output with debug traces separated from primary result text
@@ -132,7 +131,7 @@ Current config also supports:
 - `yolo: true|false` as a top-level execution preference that adapters can map to harness-specific permissive execution behavior
 - `models.implementer` as the currently active model role for live Codex execution paths
 
-For repo-scoped commands such as `resolve-skill` and `run-skill`, `ai-stack` treats this repository as its default home. That means the commands load `config.local.yaml` and `skill-indexes/local/skill-index.yaml` from the `ai-stack` repo even if you launch them from another working directory.
+For repo-scoped commands such as `resolve-skill` and `sync-skills`, `ai-stack` treats this repository as its default home. That means the commands load `config.local.yaml` and `skill-indexes/local/skill-index.yaml` from the `ai-stack` repo even if you launch them from another working directory.
 
 If you ever need to point those commands at a different checkout, use `--root /path/to/ai-stack-like-root`.
 
@@ -170,7 +169,7 @@ to `codex exec` invocations launched by `ai-stack`.
 
 For `codex`, the currently active model-role mapping is:
 
-- `run-skill` and `adapter codex` use `models.implementer`
+- `adapter codex` uses `models.implementer`
 - that role is passed through as `codex exec -m <model>`
 
 ## Current Scaffold

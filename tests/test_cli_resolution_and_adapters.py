@@ -52,22 +52,6 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             env=env,
         )
 
-    def run_skill_cli(self, cwd: Path, skill: str, prompt: str, extra_env=None, root: Optional[Path] = None):
-        env = os.environ.copy()
-        if extra_env is not None:
-            env.update(extra_env)
-        cmd = [sys.executable, str(CLI_PATH), "run-skill", skill, "--prompt", prompt]
-        if root is not None:
-            cmd.extend(["--root", str(root)])
-        return subprocess.run(
-            cmd,
-            cwd=str(cwd),
-            capture_output=True,
-            text=True,
-            check=False,
-            env=env,
-        )
-
     def run_sync_cli(
         self,
         cwd: Path,
@@ -441,113 +425,27 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["details"]["harness"]["command"], "codex")
         self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
 
-    def test_run_skill_executes_resolved_skill_with_live_adapter(self):
+    def test_run_skill_command_is_removed(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "skill-indexes" / "local").mkdir(parents=True)
-            (root / "skills" / "pull-request").mkdir(parents=True)
-            (root / "skills" / "pull-request" / "SKILL.md").write_text(
-                "# Pull Request Skill\n\nSKILL SENTINEL\n"
-            )
-            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(
-                textwrap.dedent(
-                    """\
-                    skills:
-                      - id: pull-request
-                        when: Creating pull requests
-                        repo: .
-                        path: skills/pull-request/SKILL.md
-                    """
-                )
-            )
-            (root / "config.local.yaml").write_text(
-                textwrap.dedent(
-                    """\
-                    defaultHarness: codex
-
-                    models:
-                      planner: sonnet
-                      implementer: gpt-5.5
-                      cheapVerifier: gpt-5.5-mini
-
-                    telemetry:
-                      enabled: false
-                    """
-                )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI_PATH),
+                    "run-skill",
+                    "pull-request",
+                    "--prompt",
+                    "Reply with OK",
+                ],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=False,
             )
 
-            path_dir = root / "bin"
-            path_dir.mkdir()
-            fake_rtk = path_dir / "rtk"
-            fake_rtk.write_text(
-                textwrap.dedent(
-                    """\
-                    #!/usr/bin/env python3
-                    import subprocess
-                    import sys
-
-                    proc = subprocess.run(sys.argv[2:], capture_output=True, text=True, check=False)
-                    sys.stdout.write(proc.stdout)
-                    sys.stderr.write(proc.stderr)
-                    sys.exit(proc.returncode)
-                    """
-                )
-            )
-            fake_rtk.chmod(0o755)
-            fake_codex = path_dir / "codex"
-            fake_codex.write_text(
-                textwrap.dedent(
-                    """\
-                    #!/usr/bin/env python3
-                    import sys
-                    print("RUN SKILL OK")
-                    print("ARGS:" + " ".join(sys.argv[1:]))
-                    """
-                )
-            )
-            fake_codex.chmod(0o755)
-
-            result = self.run_skill_cli(
-                root,
-                "pull-request",
-                "Reply with OK",
-                extra_env={
-                    "PATH": f"{path_dir}:/usr/bin:/bin:/opt/homebrew/bin",
-                },
-                root=root,
-            )
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        trace = json.loads(result.stdout)
-        self.assertTrue(trace["resolution"]["matched"])
-        self.assertEqual(trace["resolution"]["requestedSkill"], "pull-request")
-        self.assertEqual(trace["adapter"]["selected"], "codex")
-        self.assertEqual(trace["adapter"]["mode"], "live")
-        self.assertEqual(trace["adapter"]["status"], "completed")
-        self.assertEqual(trace["adapter"]["details"]["harness"]["model"], "gpt-5.5")
-        self.assertIn("RUN SKILL OK", trace["adapter"]["resultText"])
-        self.assertIn("-m gpt-5.5", trace["adapter"]["resultText"])
-        self.assertIn("SKILL SENTINEL", trace["adapter"]["resultText"])
-        self.assertIn("Reply with OK", trace["adapter"]["resultText"])
-        self.assertEqual(trace["adapter"]["details"]["requestedSkill"], "pull-request")
-        self.assertEqual(trace["adapter"]["details"]["sourceRepo"], ".")
-        self.assertEqual(trace["adapter"]["details"]["skillPath"], "skills/pull-request/SKILL.md")
-        self.assertEqual(
-            trace["adapter"]["details"]["resolvedSkillFilePath"],
-            str((root / "skills" / "pull-request" / "SKILL.md").resolve()),
-        )
-
-    def test_run_skill_returns_not_found_without_live_adapter_attempt(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            result = self.run_skill_cli(root, "pull-request", "Reply with OK", root=root)
-
-        self.assertEqual(result.returncode, 1, result.stderr)
-        trace = json.loads(result.stdout)
-        self.assertFalse(trace["resolution"]["matched"])
-        self.assertEqual(trace["adapter"]["mode"], "dry-run")
-        self.assertEqual(trace["adapter"]["status"], "skipped")
-        self.assertFalse(trace["adapter"]["attempted"])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid choice", result.stderr)
+        self.assertIn("run-skill", result.stderr)
 
     def test_root_override_allows_repo_scoped_commands_from_other_cwd(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as other_tmpdir:
