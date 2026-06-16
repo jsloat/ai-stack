@@ -99,8 +99,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
     def test_example_index_is_not_used_as_runtime_input(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "skill-indexes" / "local").mkdir(parents=True)
-            (root / "skill-indexes" / "local" / "skill-index.example.yaml").write_text(
+            (root / "skill-indexes").mkdir(parents=True)
+            (root / "skill-indexes" / "skill-index.example.yaml").write_text(
                 textwrap.dedent(
                     """\
                     skills:
@@ -116,15 +116,15 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 1, result.stderr)
         trace = json.loads(result.stdout)
-        self.assertEqual(trace["skillIndex"]["path"], "skill-indexes/local/skill-index.yaml")
+        self.assertEqual(trace["skillIndex"]["path"], "skill-indexes/skill-index.yaml")
         self.assertFalse(trace["skillIndex"]["found"])
         self.assertFalse(trace["resolution"]["matched"])
 
-    def test_skill_resolves_from_local_index(self):
+    def test_skill_resolves_from_skill_index(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "skill-indexes" / "local").mkdir(parents=True)
-            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(
+            (root / "skill-indexes").mkdir(parents=True)
+            (root / "skill-indexes" / "skill-index.yaml").write_text(
                 textwrap.dedent(
                     """\
                     name: skill-index
@@ -178,8 +178,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
     def test_missing_skill_in_existing_index_returns_not_found_trace(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            (root / "skill-indexes" / "local").mkdir(parents=True)
-            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(
+            (root / "skill-indexes").mkdir(parents=True)
+            (root / "skill-indexes" / "skill-index.yaml").write_text(
                 textwrap.dedent(
                     """\
                     skills:
@@ -451,8 +451,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as other_tmpdir:
             root = Path(tmpdir)
             other_cwd = Path(other_tmpdir)
-            (root / "skill-indexes" / "local").mkdir(parents=True)
-            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(
+            (root / "skill-indexes").mkdir(parents=True)
+            (root / "skill-indexes" / "skill-index.yaml").write_text(
                 textwrap.dedent(
                     """\
                     skills:
@@ -711,7 +711,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             source_dir = root / "skills" / "shared" / "skill-index-router"
             source_dir.mkdir(parents=True)
             (source_dir / "SKILL.md").write_text("# Router\n")
-            (root / "skill-indexes" / "local").mkdir(parents=True)
+            (root / "skill-indexes").mkdir(parents=True)
             index_text = textwrap.dedent(
                 """\
                 skills:
@@ -721,7 +721,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                     path: .github/skills/pull-request/SKILL.md
                 """
             )
-            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(index_text)
+            (root / "skill-indexes" / "skill-index.yaml").write_text(index_text)
 
             result = self.run_sync_cli(
                 root,

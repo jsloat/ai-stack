@@ -131,7 +131,7 @@ Current config also supports:
 - `yolo: true|false` as a top-level execution preference that adapters can map to harness-specific permissive execution behavior
 - `models.implementer` as the currently active model role for live Codex execution paths
 
-For repo-scoped commands such as `resolve-skill` and `sync-skills`, `ai-stack` treats this repository as its default home. That means the commands load `config.local.yaml` and `skill-indexes/local/skill-index.yaml` from the `ai-stack` repo even if you launch them from another working directory.
+For repo-scoped commands such as `resolve-skill` and `sync-skills`, `ai-stack` treats this repository as its default home. That means the commands load `config.local.yaml` and `skill-indexes/skill-index.yaml` from the `ai-stack` repo even if you launch them from another working directory.
 
 If you ever need to point those commands at a different checkout, use `--root /path/to/ai-stack-like-root`.
 
@@ -179,13 +179,13 @@ The current repository keeps only a small number of real top-level directories:
 - `ai_stack/` for runtime code
 - `bin/` for CLI entrypoints
 - `docs/` for shared design and structure docs
-- `skill-indexes/` for the current local index convention
+- `skill-indexes/` for the current skill-index convention
 - `skills/` for repo-local skill packages
 - `tests/` for runtime tests
 
 Planned areas such as `memory/`, `telemetry/`, and `model-benchmarks/` are still part of the design, but they should not exist as top-level directories until they contain real assets.
 
-For `skill-indexes/`, the currently justified use case is local-only curation: private or global skill references that a user wants this repo to know about. Shared committed indexes should be added only if the repo later needs curated bundles of repo-owned skills.
+For `skill-indexes/`, the currently justified use case is repo-local curation of private or global skill references that a user wants this repo to know about. Shared committed indexes should be added only if the repo later needs curated bundles of repo-owned skills.
 
 For `skills/`, there are now two justified uses:
 
@@ -210,7 +210,7 @@ Repo-owned skills are now the current source of truth for native Codex skill syn
 For the external skill router specifically:
 
 - `skills/shared/skill-index-router/` is the committed router skill package
-- `skill-indexes/local/skill-index.yaml` remains the editable source-of-truth file
+- `skill-indexes/skill-index.yaml` remains the editable source-of-truth file
 - sync installs the router only when that index has entries
 - sync copies the current index into the installed router skill as `references/skill-index.yaml`
 
@@ -219,12 +219,12 @@ Deletion propagation is conservative:
 - if a skill disappears from the repo-owned skill source set and the installed Codex copy was previously managed by `ai-stack`, apply mode backs it up and removes it
 - if a skill under `~/.codex/skills/` was not previously managed by `ai-stack`, sync only reports it and never removes it automatically
 
-The current intended model is one conventional local index file that points to multiple external or local-only skills. If that file exists, future tooling can incorporate it. If it does not exist, the repo should proceed without error.
+The current intended model is one conventional skill-index file that points to multiple external or local-only skills. If that file exists, future tooling can incorporate it. If it does not exist, the repo should proceed without error.
 
 From the core-vs-conventions perspective, the current live areas are:
 
 - `ai_stack/`, `bin/`, and `tests/` for runtime behavior
 - `docs/` and `.github/` for shared guidance and compatibility
-- `skill-indexes/` for the current optional local registry artifact
+- `skill-indexes/` for the current optional registry artifact
 
-There is currently a standardized example artifact at `skill-indexes/local/skill-index.example.yaml`, aligned with the current skill-index contract.
+There is currently a standardized example artifact at `skill-indexes/skill-index.example.yaml`, aligned with the current skill-index contract.

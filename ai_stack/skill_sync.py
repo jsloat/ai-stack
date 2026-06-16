@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ai_stack.skill_index import LOCAL_INDEX_PATH, load_skill_index
+from ai_stack.skill_index import INDEX_PATH, load_skill_index
 
 SKILL_SOURCE_ROOTS = (
     ("local", Path("skills/local")),

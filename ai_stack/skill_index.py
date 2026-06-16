@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 
-LOCAL_INDEX_PATH = Path("skill-indexes/local/skill-index.yaml")
+INDEX_PATH = Path("skill-indexes/skill-index.yaml")
 
 
 def parse_skill_index(text: str) -> List[Dict[str, str]]:
@@ -36,10 +36,10 @@ def parse_skill_index(text: str) -> List[Dict[str, str]]:
 
 
 def load_skill_index(root: Path) -> Dict[str, Any]:
-    index_path = root / LOCAL_INDEX_PATH
+    index_path = root / INDEX_PATH
     result: Dict[str, Any] = {
         "found": index_path.exists(),
-        "path": str(LOCAL_INDEX_PATH),
+        "path": str(INDEX_PATH),
         "parsed": False,
         "rowCount": 0,
         "rows": [],

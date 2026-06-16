@@ -174,7 +174,7 @@ Outputs:
 
 Checklist:
 
-- [ ] Define the config fields needed for harness defaults, model roles, telemetry toggles, and local index references.
+- [ ] Define the config fields needed for harness defaults, model roles, telemetry toggles, and skill-index references.
 - [ ] Document how `shared` skills and `local` additions are discovered and merged.
 - [ ] Define the minimum shape of a skill index file.
 - [ ] Decide whether `AGENTS.md` and `.github/copilot-instructions.md` remain hand-maintained or are generated from shared policy.

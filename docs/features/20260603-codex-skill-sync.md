@@ -268,7 +268,7 @@ Replace prompt-injection dependence with a native top-level routing skill patter
 Outputs:
 
 - one native skill that instructs Codex how to use the external skill registry pattern
-- updated guidance for local skill index usage
+- updated guidance for skill-index usage
 - removal of the temporary prompt-injection bridge
 
 Checklist:
@@ -284,8 +284,8 @@ Repo-owned skill behavior can be exercised natively through Codex skill discover
 Current Phase 4 decision:
 
 - the top-level native router skill is `skills/shared/skill-index-router/`
-- it should only be installed when the local skill index exists and contains at least one entry
-- sync should bundle the current local index into the installed router skill as `references/skill-index.yaml`
+- it should only be installed when the skill index exists and contains at least one entry
+- sync should bundle the current skill index into the installed router skill as `references/skill-index.yaml`
 - the installed router should inspect that bundled reference only when a specialized external skill may apply
 - it should resolve `repo` + `path`, read the referenced external `SKILL.md`, and follow it
 - absence of the bundled index reference or a matching entry is a normal no-op path

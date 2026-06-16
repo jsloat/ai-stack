@@ -2,11 +2,11 @@
 
 ## Summary
 
-Define the first contract for a local skill index in `ai-stack`. The index should be a small YAML registry of external or local-only skills that this repo may use, while remaining simple enough to edit by hand and structured enough for future tooling to discover, resolve, and trace skill loading.
+Define the first contract for the skill index in `ai-stack`. The index should be a small YAML registry of external or local-only skills that this repo may use, while remaining simple enough to edit by hand and structured enough for future tooling to discover, resolve, and trace skill loading.
 
 ## Problem
 
-The repository now has a conventional example file for a local skill index, but there is no contract for what information the file must contain, how tooling should parse it reliably, or how operational concerns like “update the source repo first” should be represented without bloating the runtime format.
+The repository now has a conventional example file for its skill index, but there is no contract for what information the file must contain, how tooling should parse it reliably, or how operational concerns like “update the source repo first” should be represented without bloating the runtime format.
 
 Without a skill index contract:
 
@@ -33,17 +33,17 @@ Without a skill index contract:
 
 ## Proposed Design
 
-The local skill index should be a small YAML file that acts as a routing registry for skills outside the shared repo.
+The skill index should be a small YAML file that acts as a routing registry for skills outside the shared repo.
 
 ### File Location
 
 The current conventional example artifact is:
 
-- `skill-indexes/local/skill-index.example.yaml`
+- `skill-indexes/skill-index.example.yaml`
 
 The runtime working file is:
 
-- `skill-indexes/local/skill-index.yaml`
+- `skill-indexes/skill-index.yaml`
 
 The runtime should only read the non-example working file. The example exists to document the shape and provide a copyable starting point.
 
@@ -126,7 +126,7 @@ But early implementations can stop at:
 
 The minimum future runtime behavior should be:
 
-1. if the local skill index file is absent, continue normally
+1. if the skill index file is absent, continue normally
 2. if present, parse the `skills` list
 3. resolve referenced skill locations deterministically
 4. emit a load trace when a referenced skill is selected and loaded
@@ -141,11 +141,11 @@ The runtime does not initially need to:
 
 ### Native Router Integration
 
-If the repo ships a native routing skill that consults the local index, that skill does not need to read the repo-relative working file directly at runtime.
+If the repo ships a native routing skill that consults the skill index, that skill does not need to read the repo-relative working file directly at runtime.
 
 A valid pattern is:
 
-- keep the editable source-of-truth file at `skill-indexes/local/skill-index.yaml`
+- keep the editable source-of-truth file at `skill-indexes/skill-index.yaml`
 - during skill sync, copy the current file into the installed router skill as a bundled reference
 - install the router skill only when the index contains at least one entry
 
@@ -156,7 +156,7 @@ This keeps the editable repo artifact and the installed native skill aligned wit
 This feature affects:
 
 - `skill-indexes/README.md`
-- `skill-indexes/local/skill-index.example.yaml`
+- `skill-indexes/skill-index.example.yaml`
 - future skill resolution and load tracing
 - future workflow decisions about freshness/update behavior
 
@@ -201,7 +201,7 @@ Outputs:
 
 Checklist:
 
-- [x] Update `skill-indexes/local/skill-index.example.yaml` to include a realistic example entry.
+- [x] Update `skill-indexes/skill-index.example.yaml` to include a realistic example entry.
 - [x] Keep the runtime file schema small instead of mixing in operational guidance.
 - [x] Update `skill-indexes/README.md` to reflect the new contract.
 
@@ -246,7 +246,7 @@ Future tooling can consume the index reliably while leaving environment-specific
 
 ## Follow-Up Work
 
-- Update `skill-indexes/local/skill-index.example.yaml` to reflect this contract.
+- Update `skill-indexes/skill-index.example.yaml` to reflect this contract.
 - Update `skill-indexes/README.md` to reflect this contract.
 - Use this contract when defining the first load-trace-based skill resolution tests.
 - Revisit freshness/update behavior after the first executable slice exists.

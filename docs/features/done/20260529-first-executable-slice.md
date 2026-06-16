@@ -2,7 +2,7 @@
 
 ## Summary
 
-Define the first runnable end-to-end slice of `ai-stack`. The initial implementation should prove that the repository’s contracts are usable in code by discovering optional local context, resolving an external skill reference from the local skill index, and emitting a deterministic load trace.
+Define the first runnable end-to-end slice of `ai-stack`. The initial implementation should prove that the repository’s contracts are usable in code by discovering optional local context, resolving an external skill reference from the skill index, and emitting a deterministic load trace.
 
 ## Problem
 
@@ -26,7 +26,7 @@ Without a narrow first slice:
 
 - Implement the smallest useful runtime path that exercises the current contracts.
 - Keep the slice deterministic and testable.
-- Prove optional local config and optional local skill index handling.
+- Prove optional local config and optional skill-index handling.
 - Prove that a referenced skill can be resolved and traced from a fresh run.
 - Avoid pulling in full orchestration, multi-model workflows, or benchmark logic.
 
@@ -47,7 +47,7 @@ The first executable slice should be a thin resolution-and-trace path.
 1. Start from a fresh invocation.
 2. Load hardcoded defaults.
 3. Load `config.local.yaml` if present.
-4. Look for the conventional local skill index if present.
+4. Look for the conventional skill index if present.
 5. Parse the skill registry table if the index exists.
 6. Resolve a requested skill identifier to its source repo and `SKILL.md` path.
 7. Emit a structured load trace showing what was discovered and resolved.
@@ -68,7 +68,7 @@ The slice should operate with these inputs:
 
 - hardcoded defaults from code
 - optional `config.local.yaml`
-- optional `skill-indexes/local/skill-index.example.md` or future real local index file
+- optional `skill-indexes/skill-index.example.yaml` or future real skill-index file
 - one requested skill identifier from the command line or test harness
 
 ### No-Op Behavior
@@ -79,7 +79,7 @@ If `config.local.yaml` is absent:
 
 - continue with hardcoded defaults
 
-If the local skill index is absent:
+If the skill index is absent:
 
 - continue without error
 - report that no skill index was found
@@ -96,7 +96,7 @@ The key output of this slice is a structured load trace.
 At minimum, the trace should record:
 
 - whether `config.local.yaml` was found
-- whether the local skill index was found
+- whether the skill index was found
 - whether the index parsed successfully
 - which skill identifier was requested
 - whether a registry match was found
@@ -114,7 +114,7 @@ Example shape:
   },
   "skillIndex": {
     "found": true,
-    "path": "skill-indexes/local/skill-index.example.md",
+    "path": "skill-indexes/skill-index.yaml",
     "parsed": true
   },
   "resolution": {
@@ -219,7 +219,7 @@ Outputs:
 
 Checklist:
 
-- [x] Add a test where both local config and local index are absent.
+- [x] Add a test where both local config and skill index are absent.
 - [x] Add a test where the index exists and a skill resolves successfully.
 - [x] Add a test where the index exists but the requested skill is missing.
 - [x] Add assertions against the load trace rather than human-oriented prose.
@@ -237,7 +237,7 @@ The first slice is testable and proves the current contracts are executable.
 
 ## Open Questions
 
-- Should future runtime versions continue reading `skill-index.example.md` directly, or introduce a non-example sibling file convention?
+- Should future runtime versions continue reading only `skill-index.yaml`, or broaden the convention later if multiple index artifacts ever become necessary?
 - Should the trace support file output in addition to stdout?
 
 ## Follow-Up Work

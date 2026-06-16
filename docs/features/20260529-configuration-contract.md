@@ -56,7 +56,7 @@ It should not support:
 
 - `config.example.yaml` is the committed template
 - `config.local.yaml` is the user-filled local file and should remain untracked
-- `skill-indexes/local/skill-index.example.yaml` is the committed example artifact for local skill indexing
+- `skill-indexes/skill-index.example.yaml` is the committed example artifact for skill indexing
 
 The expected user flow is:
 
@@ -82,13 +82,13 @@ That approach is less magical and avoids pretending the example file is authorit
 
 ### Local Skill Index Convention
 
-The repo should standardize on one example filename for the local skill index:
+The repo should standardize on one example filename for the skill index:
 
-- `skill-indexes/local/skill-index.example.yaml`
+- `skill-indexes/skill-index.example.yaml`
 
 The runtime working file should be:
 
-- `skill-indexes/local/skill-index.yaml`
+- `skill-indexes/skill-index.yaml`
 
 This standardizes the example artifact, working filename, and location without requiring config indirection.
 

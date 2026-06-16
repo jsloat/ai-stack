@@ -1,5 +1,5 @@
 docs/local/*
 config.local.yaml
-skill-indexes/local/*.yaml
-!skill-indexes/local/*.example.yaml
+skill-indexes/*.yaml
+!skill-indexes/*.example.yaml
 skills/local/*
