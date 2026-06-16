@@ -4,6 +4,8 @@
 
 Initialize `ai-stack` as a documentation-led repository for a future AI coding operations platform. The immediate goal is not to ship orchestration code. It is to establish the repo contract, naming conventions, and feature-document discipline that later implementation will follow.
 
+This document started as the bootstrap plan. Parts of that plan are now complete and have been superseded by dedicated feature docs plus a small implemented runtime slice.
+
 ## Problem
 
 AI coding workflows tend to accrete as ad hoc prompts, one-off scripts, and harness-specific conventions. That makes them hard to share, hard to reason about, and nearly impossible to measure consistently across tools.
@@ -174,10 +176,10 @@ Outputs:
 
 Checklist:
 
-- [ ] Define the config fields needed for harness defaults, model roles, telemetry toggles, and skill-index references.
-- [ ] Document how `shared` skills and `local` additions are discovered and merged.
-- [ ] Define the minimum shape of a skill index file.
-- [ ] Decide whether `AGENTS.md` and `.github/copilot-instructions.md` remain hand-maintained or are generated from shared policy.
+- [x] Define the config fields needed for harness defaults, model roles, telemetry toggles, and skill-index references.
+- [x] Document how `shared` skills and `local` additions are discovered and merged.
+- [x] Define the minimum shape of a skill index file.
+- [x] Decide whether `AGENTS.md` and `.github/copilot-instructions.md` remain hand-maintained or are generated from shared policy.
 
 Exit Criteria:
 An implementation can read configuration and resolve repo context without inventing new naming or layout rules.
@@ -195,10 +197,10 @@ Outputs:
 
 Checklist:
 
-- [ ] Select the first harness target.
-- [ ] Implement the smallest useful command path, likely around context resolution or skill discovery.
+- [x] Select the first harness target.
+- [x] Implement the smallest useful command path, likely around context resolution or skill discovery.
 - [ ] Capture enough telemetry to observe route, duration, and outcome.
-- [ ] Validate that the implementation still matches the documented repo contract.
+- [x] Validate that the implementation still matches the documented repo contract.
 
 Exit Criteria:
 The repo has a minimal executable path that confirms the initialization docs were concrete enough to build against.
@@ -226,7 +228,7 @@ The repo has a minimal executable path that confirms the initialization docs wer
 
 ## Follow-Up Work
 
-- Create the structural scaffolding described in Phase 2.
-- Draft a dedicated feature doc for configuration and context resolution.
+- Finish the first telemetry contract and implementation slice so the remaining Phase 4 item is real rather than implied.
+- Keep moving settled structure from feature docs into README-style shared docs as runtime behavior stabilizes.
 - Draft a dedicated feature doc for model benchmarks and routing inputs.
 - Draft a dedicated feature doc for telemetry and the execution dashboard.

@@ -24,6 +24,12 @@ DEFAULT_CONFIG = {
     },
 }
 
+
+ALLOWED_TOP_LEVEL_CONFIG_KEYS = {"defaultHarness", "yolo", "models", "telemetry"}
+ALLOWED_MODEL_ROLE_KEYS = {"planner", "implementer", "cheapVerifier"}
+ALLOWED_TELEMETRY_KEYS = {"enabled"}
+
+
 def infer_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
@@ -34,12 +40,28 @@ def load_local_config(root: Path) -> Dict[str, Any]:
     result = {
         "path": str(config_path.relative_to(root)),
         "localConfigFound": config_path.exists(),
+        "parsed": False,
+        "valid": True,
+        "errors": [],
         "effective": effective,
     }
     if not config_path.exists():
         return result
 
-    parsed = parse_simple_yaml(config_path.read_text())
+    try:
+        parsed = parse_simple_yaml(config_path.read_text())
+    except ValueError as exc:
+        result["errors"] = [str(exc)]
+        result["valid"] = False
+        return result
+
+    result["parsed"] = True
+    errors = validate_local_config(parsed)
+    if errors:
+        result["errors"] = errors
+        result["valid"] = False
+        return result
+
     _deep_merge(effective, parsed)
     return result
 
@@ -50,6 +72,47 @@ def _deep_merge(dest: Dict[str, Any], src: Dict[str, Any]) -> None:
             _deep_merge(dest[key], value)
         else:
             dest[key] = value
+
+
+def validate_local_config(parsed: Dict[str, Any]) -> List[str]:
+    errors: List[str] = []
+    unknown_top_level = sorted(set(parsed) - ALLOWED_TOP_LEVEL_CONFIG_KEYS)
+    for key in unknown_top_level:
+        errors.append(f"Unknown top-level config key: {key}")
+
+    default_harness = parsed.get("defaultHarness")
+    if default_harness is not None and not isinstance(default_harness, str):
+        errors.append("defaultHarness must be a string")
+
+    yolo = parsed.get("yolo")
+    if yolo is not None and not isinstance(yolo, bool):
+        errors.append("yolo must be a boolean")
+
+    models = parsed.get("models")
+    if models is not None:
+        if not isinstance(models, dict):
+            errors.append("models must be a mapping")
+        else:
+            unknown_model_keys = sorted(set(models) - ALLOWED_MODEL_ROLE_KEYS)
+            for key in unknown_model_keys:
+                errors.append(f"Unknown models key: {key}")
+            for key, value in models.items():
+                if key in ALLOWED_MODEL_ROLE_KEYS and not isinstance(value, str):
+                    errors.append(f"models.{key} must be a string")
+
+    telemetry = parsed.get("telemetry")
+    if telemetry is not None:
+        if not isinstance(telemetry, dict):
+            errors.append("telemetry must be a mapping")
+        else:
+            unknown_telemetry_keys = sorted(set(telemetry) - ALLOWED_TELEMETRY_KEYS)
+            for key in unknown_telemetry_keys:
+                errors.append(f"Unknown telemetry key: {key}")
+            enabled = telemetry.get("enabled")
+            if enabled is not None and not isinstance(enabled, bool):
+                errors.append("telemetry.enabled must be a boolean")
+
+    return errors
 
 
 def discover_skill_index(root: Path) -> Dict[str, Any]:
@@ -65,6 +128,33 @@ def discover_skill_index(root: Path) -> Dict[str, Any]:
 
 def resolve_skill(root: Path, skill_name: str) -> Dict[str, Any]:
     config = load_local_config(root)
+    if not config["valid"]:
+        return {
+            "config": config,
+            "skillIndex": {
+                "found": False,
+                "path": str((root / "skill-indexes" / "skill-index.yaml").relative_to(root)),
+                "parsed": False,
+                "rowCount": 0,
+            },
+            "resolution": {
+                "requestedSkill": skill_name,
+                "matched": False,
+                "sourceRepo": None,
+                "skillPath": None,
+            },
+            "adapter": {
+                "selected": config["effective"]["defaultHarness"],
+                "found": False,
+                "mode": "dry-run",
+                "status": "blocked",
+                "attempted": False,
+                "details": {
+                    "reason": "invalid-config",
+                },
+            },
+        }
+
     skill_index = discover_skill_index(root)
     match: Optional[Dict[str, str]] = None
     for row in skill_index["rows"]:
@@ -127,11 +217,28 @@ def main(argv: Optional[List[str]] = None) -> int:
         root = args.root.resolve() if args.root is not None else infer_repo_root()
         trace = resolve_skill(root, args.skill)
         print(json.dumps(trace, indent=2, sort_keys=True))
-        return 0 if trace["resolution"]["matched"] else 1
+        return 0 if trace["config"]["valid"] and trace["resolution"]["matched"] else 1
     if args.command == "adapter":
         root = args.root.resolve() if args.root is not None else infer_repo_root()
         config = load_local_config(root)
+        if not config["valid"]:
+            trace = {
+                "config": config,
+                "adapter": {
+                    "selected": args.harness,
+                    "found": False,
+                    "mode": "live",
+                    "status": "blocked",
+                    "attempted": False,
+                    "details": {
+                        "reason": "invalid-config",
+                    },
+                },
+            }
+            print(json.dumps(trace, indent=2, sort_keys=True))
+            return 1
         trace = {
+            "config": config,
             "adapter": run_adapter_live(
                 args.harness,
                 args.prompt,

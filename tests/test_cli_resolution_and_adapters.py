@@ -11,7 +11,7 @@ from typing import Optional
 from ai_stack.resolve_skill import infer_repo_root
 
 
-REPO_ROOT = Path("/Users/jsloat/Dev/ai-stack")
+REPO_ROOT = Path(__file__).resolve().parent.parent
 CLI_PATH = REPO_ROOT / "bin" / "ai-stack"
 
 
@@ -87,6 +87,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stderr)
         trace = json.loads(result.stdout)
         self.assertFalse(trace["config"]["localConfigFound"])
+        self.assertTrue(trace["config"]["valid"])
         self.assertFalse(trace["skillIndex"]["found"])
         self.assertFalse(trace["resolution"]["matched"])
         self.assertEqual(trace["resolution"]["requestedSkill"], "pull-request")
@@ -119,6 +120,55 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["skillIndex"]["path"], "skill-indexes/skill-index.yaml")
         self.assertFalse(trace["skillIndex"]["found"])
         self.assertFalse(trace["resolution"]["matched"])
+
+    def test_invalid_config_unknown_key_blocks_resolution_with_structured_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "config.local.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    defaultHarness: codex
+                    unsupportedFlag: true
+                    """
+                )
+            )
+
+            result = self.run_cli(root, "pull-request", root=root)
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertTrue(trace["config"]["localConfigFound"])
+        self.assertTrue(trace["config"]["parsed"])
+        self.assertFalse(trace["config"]["valid"])
+        self.assertEqual(trace["config"]["errors"], ["Unknown top-level config key: unsupportedFlag"])
+        self.assertEqual(trace["adapter"]["status"], "blocked")
+        self.assertEqual(trace["adapter"]["details"]["reason"], "invalid-config")
+        self.assertFalse(trace["skillIndex"]["found"])
+        self.assertFalse(trace["resolution"]["matched"])
+
+    def test_invalid_config_yaml_blocks_adapter_command_with_structured_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "config.local.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    defaultHarness:
+                      - codex
+                    """
+                )
+            )
+
+            result = self.run_adapter_cli(root, "codex", "Reply with OK", root=root)
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertTrue(trace["config"]["localConfigFound"])
+        self.assertTrue(trace["config"]["parsed"])
+        self.assertFalse(trace["config"]["valid"])
+        self.assertEqual(trace["config"]["errors"], ["defaultHarness must be a string"])
+        self.assertEqual(trace["adapter"]["status"], "blocked")
+        self.assertEqual(trace["adapter"]["details"]["reason"], "invalid-config")
+        self.assertFalse(trace["adapter"]["attempted"])
 
     def test_skill_resolves_from_skill_index(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -158,6 +208,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         trace = json.loads(result.stdout)
         self.assertTrue(trace["config"]["localConfigFound"])
+        self.assertTrue(trace["config"]["parsed"])
+        self.assertTrue(trace["config"]["valid"])
         self.assertEqual(trace["config"]["effective"]["defaultHarness"], "codex")
         self.assertTrue(trace["skillIndex"]["found"])
         self.assertTrue(trace["skillIndex"]["parsed"])
@@ -228,6 +280,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 1, result.stderr)
         trace = json.loads(result.stdout)
+        self.assertTrue(trace["config"]["valid"])
         self.assertEqual(trace["adapter"]["selected"], "mystery")
         self.assertFalse(trace["adapter"]["found"])
         self.assertEqual(trace["adapter"]["status"], "unsupported")

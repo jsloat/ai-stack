@@ -80,6 +80,19 @@ For early implementation, a simpler model is acceptable:
 
 That approach is less magical and avoids pretending the example file is authoritative runtime state.
 
+The current implementation follows that simpler model:
+
+- `config.example.yaml` is documentation/bootstrap only
+- runtime starts from hardcoded defaults
+- runtime then loads and validates `config.local.yaml` when it exists
+
+Validation is intentionally strict:
+
+- unknown top-level or nested config keys are rejected
+- malformed scalar or mapping shapes are rejected
+- omitted fields continue to inherit hardcoded defaults
+- commands return structured config errors instead of silently accepting drift
+
 ### Local Skill Index Convention
 
 The repo should standardize on one example filename for the skill index:
@@ -135,6 +148,15 @@ telemetry:
 
 - only toggles whether runtime telemetry is captured
 - does not define telemetry schema by itself
+
+### Current Runtime Integration
+
+Current command behavior is:
+
+- `resolve-skill` selects its adapter from `defaultHarness`
+- `adapter <harness>` uses the explicit CLI harness argument and does not consult `defaultHarness`
+- live adapter execution currently resolves the `implementer` model role and `yolo` flag from config
+- repo-owned paths such as `docs/features/`, `skills/shared/`, `skills/local/`, and `skill-indexes/skill-index.yaml` remain hardcoded
 
 ### RTK
 
@@ -203,8 +225,8 @@ Checklist:
 
 - [x] Decide whether runtime reads `config.example.yaml` or uses hardcoded defaults plus `config.local.yaml`.
 - [x] Define what happens when `config.local.yaml` is missing.
-- [ ] Define behavior for unknown keys.
-- [ ] Define validation behavior for missing required values or malformed schema.
+- [x] Define behavior for unknown keys.
+- [x] Define validation behavior for missing required values or malformed schema.
 
 Exit Criteria:
 Config loading behavior is deterministic and documented.
@@ -222,10 +244,10 @@ Outputs:
 
 Checklist:
 
-- [ ] Document how adapter selection consumes `defaultHarness`.
+- [x] Document how adapter selection consumes `defaultHarness`.
 - [x] Document how workflow code consumes model roles.
 - [x] Document the conventional local skill-index filename and how it is discovered.
-- [ ] Confirm that no repo-owned paths need to become configurable yet.
+- [x] Confirm that no repo-owned paths need to become configurable yet.
 
 Exit Criteria:
 The first executable slice can consume config without forcing a schema redesign.
