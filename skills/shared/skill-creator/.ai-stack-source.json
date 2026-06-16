@@ -1,9 +1,0 @@
-{
-  "notes": "Imported from the Anthropic skills repository. ai-stack does not yet implement automated upstream refresh for tracked shared skills.",
-  "source": {
-    "path": "skills/skill-creator/SKILL.md",
-    "ref": "main",
-    "repo": "https://github.com/anthropics/skills"
-  },
-  "type": "upstream-import"
-}
