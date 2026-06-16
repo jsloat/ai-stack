@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ai_stack.adapter_contract import AdapterDetails, AdapterResult
 from ai_stack.adapters import run_adapter_dry_mode, run_adapter_live
+from ai_stack.skill_index import load_skill_index, parse_simple_yaml
 from ai_stack.skill_sync import apply_sync_plan, build_sync_plan
 
 
@@ -25,20 +25,8 @@ DEFAULT_CONFIG = {
     },
 }
 
-LOCAL_INDEX_PATH = Path("skill-indexes/local/skill-index.yaml")
-
-
 def infer_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
-
-
-def _parse_scalar(value: str) -> Any:
-    value = value.strip()
-    if value in {"true", "false"}:
-        return value == "true"
-    if re.fullmatch(r"-?\d+", value):
-        return int(value)
-    return value
 
 
 def load_local_config(root: Path) -> Dict[str, Any]:
@@ -52,7 +40,7 @@ def load_local_config(root: Path) -> Dict[str, Any]:
     if not config_path.exists():
         return result
 
-    parsed = _parse_simple_yaml(config_path.read_text())
+    parsed = parse_simple_yaml(config_path.read_text())
     _deep_merge(effective, parsed)
     return result
 
@@ -66,164 +54,14 @@ def _deep_merge(dest: Dict[str, Any], src: Dict[str, Any]) -> None:
 
 
 def discover_skill_index(root: Path) -> Dict[str, Any]:
-    index_path = root / LOCAL_INDEX_PATH
-    result: Dict[str, Any] = {
-        "found": index_path.exists(),
-        "path": str(LOCAL_INDEX_PATH),
-        "parsed": False,
-        "rowCount": 0,
-        "rows": [],
+    result = load_skill_index(root)
+    return {
+        "found": result["found"],
+        "path": result["path"],
+        "parsed": result["parsed"],
+        "rowCount": result["rowCount"],
+        "rows": result["rows"],
     }
-    if not index_path.exists():
-        return result
-
-    rows = parse_skill_index(index_path.read_text())
-    result["parsed"] = True
-    result["rowCount"] = len(rows)
-    result["rows"] = rows
-    return result
-
-
-def parse_skill_index(text: str) -> List[Dict[str, str]]:
-    parsed = _parse_simple_yaml(text)
-    skills = parsed.get("skills", [])
-    if not isinstance(skills, list):
-        raise ValueError("skill index must define a top-level 'skills' list")
-
-    rows: List[Dict[str, str]] = []
-    for item in skills:
-        if not isinstance(item, dict):
-            continue
-        skill = item.get("id")
-        when_to_use = item.get("when")
-        source_repo = item.get("repo")
-        skill_path = item.get("path")
-        if not all(isinstance(value, str) and value for value in [skill, when_to_use, source_repo, skill_path]):
-            continue
-        rows.append(
-            {
-                "skill": skill,
-                "whenToUse": when_to_use,
-                "sourceRepo": source_repo,
-                "skillPath": skill_path,
-            }
-        )
-    return rows
-
-
-def _parse_simple_yaml(text: str) -> Dict[str, Any]:
-    lines = []
-    for raw_line in text.splitlines():
-        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
-            continue
-        indent = len(raw_line) - len(raw_line.lstrip(" "))
-        lines.append((indent, raw_line.strip()))
-
-    root: Dict[str, Any] = {}
-    idx = 0
-    while idx < len(lines):
-        indent, line = lines[idx]
-        if indent != 0 or line.startswith("- "):
-            raise ValueError(f"Unsupported YAML line: {line!r}")
-        key, rest = _split_yaml_key_value(line)
-        idx += 1
-        if rest == "":
-            if idx < len(lines) and lines[idx][0] > indent:
-                value, idx = _parse_yaml_block(lines, idx, lines[idx][0])
-            else:
-                value = {}
-            root[key] = value
-        else:
-            root[key] = _parse_scalar(rest)
-    return root
-
-
-def _parse_yaml_block(lines: List[tuple[int, str]], idx: int, indent: int) -> tuple[Any, int]:
-    if idx >= len(lines):
-        return {}, idx
-    _, line = lines[idx]
-    if line.startswith("- "):
-        return _parse_yaml_list(lines, idx, indent)
-    return _parse_yaml_mapping(lines, idx, indent)
-
-
-def _parse_yaml_mapping(lines: List[tuple[int, str]], idx: int, indent: int) -> tuple[Dict[str, Any], int]:
-    mapping: Dict[str, Any] = {}
-    while idx < len(lines):
-        line_indent, line = lines[idx]
-        if line_indent < indent:
-            break
-        if line_indent != indent or line.startswith("- "):
-            raise ValueError(f"Unsupported YAML line: {line!r}")
-
-        key, rest = _split_yaml_key_value(line)
-        idx += 1
-        if rest == "":
-            if idx < len(lines) and lines[idx][0] > line_indent:
-                value, idx = _parse_yaml_block(lines, idx, lines[idx][0])
-            else:
-                value = {}
-            mapping[key] = value
-        else:
-            mapping[key] = _parse_scalar(rest)
-    return mapping, idx
-
-
-def _parse_yaml_list(lines: List[tuple[int, str]], idx: int, indent: int) -> tuple[List[Any], int]:
-    items: List[Any] = []
-    while idx < len(lines):
-        line_indent, line = lines[idx]
-        if line_indent < indent:
-            break
-        if line_indent != indent or not line.startswith("- "):
-            raise ValueError(f"Unsupported YAML line: {line!r}")
-
-        rest = line[2:].strip()
-        idx += 1
-        if rest == "":
-            if idx < len(lines) and lines[idx][0] > line_indent:
-                item, idx = _parse_yaml_block(lines, idx, lines[idx][0])
-            else:
-                item = None
-            items.append(item)
-            continue
-
-        if ":" not in rest:
-            items.append(_parse_scalar(rest))
-            continue
-
-        key, value = _split_yaml_key_value(rest)
-        item: Dict[str, Any] = {key: _parse_scalar(value)} if value else {key: {}}
-
-        while idx < len(lines):
-            next_indent, next_line = lines[idx]
-            if next_indent <= line_indent:
-                break
-            if next_line.startswith("- "):
-                break
-            if next_indent != line_indent + 2:
-                raise ValueError(f"Unsupported YAML line: {next_line!r}")
-
-            nested_key, nested_value = _split_yaml_key_value(next_line)
-            idx += 1
-            if nested_value == "":
-                if idx < len(lines) and lines[idx][0] > next_indent:
-                    value_obj, idx = _parse_yaml_block(lines, idx, lines[idx][0])
-                else:
-                    value_obj = {}
-                item[nested_key] = value_obj
-            else:
-                item[nested_key] = _parse_scalar(nested_value)
-
-        items.append(item)
-    return items, idx
-
-
-def _split_yaml_key_value(line: str) -> tuple[str, str]:
-    if ":" not in line:
-        raise ValueError(f"Unsupported YAML line: {line!r}")
-    key, rest = line.split(":", 1)
-    return key.strip(), rest.strip()
 
 
 def resolve_skill(root: Path, skill_name: str) -> Dict[str, Any]:

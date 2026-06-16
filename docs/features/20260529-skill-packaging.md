@@ -23,7 +23,7 @@ This matters because skills are one of the main ways `ai-stack` can package spec
 - Define which supporting directories are optional and what they mean.
 - Keep the packaging model compatible with both lightweight markdown skills and richer multi-file skills.
 - Preserve the `shared` versus `local` split.
-- Avoid overcommitting to a single harness-specific skill format.
+- Avoid overcommitting to a single harness-specific skill format or an unnecessarily rigid internal template.
 
 ## Non-Goals
 
@@ -125,6 +125,8 @@ Examples:
 - Keep skills task-shaped, not repo-policy-shaped.
 - Put durable repository truth in shared docs and `AGENTS.md`, not in a random skill.
 - Keep packaged scripts and assets tightly scoped to the skill that uses them.
+- Treat this document as a minimum contract, not a detailed writing style guide.
+- Prefer reusable authoring guidance inside dedicated skills such as `skill-creator` over duplicating a large prescriptive ruleset here.
 
 ## Repository Impact
 
@@ -221,6 +223,7 @@ Future tooling can consume skill packages without special-casing every skill.
 - Should example skill skeletons be committed now, or only once the skill index contract exists?
 - How much harness-specific translation, if any, should be encoded in the package versus handled entirely by adapters?
 - Should `ai-stack` eventually ship a shared governance/meta skill that interprets requests like “change how this repo behaves in future sessions” and routes them to `AGENTS.md`, `README.md`, feature docs, or harness-specific shims appropriately?
+- How much of the practical authoring guidance should live in shared docs versus inside repo-owned guidance skills like `skill-creator`?
 
 ## Follow-Up Work
 

@@ -139,6 +139,18 @@ The runtime does not initially need to:
 - guarantee repo freshness
 - understand broader operational prose
 
+### Native Router Integration
+
+If the repo ships a native routing skill that consults the local index, that skill does not need to read the repo-relative working file directly at runtime.
+
+A valid pattern is:
+
+- keep the editable source-of-truth file at `skill-indexes/local/skill-index.yaml`
+- during skill sync, copy the current file into the installed router skill as a bundled reference
+- install the router skill only when the index contains at least one entry
+
+This keeps the editable repo artifact and the installed native skill aligned without forcing the installed skill to guess the repo root.
+
 ## Repository Impact
 
 This feature affects:

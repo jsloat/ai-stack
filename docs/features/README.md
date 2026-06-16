@@ -4,6 +4,8 @@
 
 Use `docs/features/` for active backlog and ongoing design work. Use `docs/features/done/` for completed feature docs that still matter as reference material.
 
+Do not treat this directory as the final resting place for settled repo architecture. Once a structure, convention, or workflow becomes durable and stable, move the concise source of truth into README-style docs and leave the feature doc as backlog/history/reference.
+
 ## What Belongs Here
 
 Create a feature doc when work has any of the following:
@@ -16,7 +18,7 @@ Create a feature doc when work has any of the following:
 
 Do not use this directory for scratch notes, raw transcripts, or generic meeting summaries.
 
-This directory is design documentation, not an instruction-loading mechanism. Agent workflow guidance belongs in `AGENTS.md`. Copilot compatibility guidance belongs in `.github/copilot-instructions.md`.
+This directory is design documentation and backlog management, not an instruction-loading mechanism or the long-term home of settled architecture. Agent workflow guidance belongs in `AGENTS.md`. Copilot compatibility guidance belongs in `.github/copilot-instructions.md`.
 
 ## File Naming
 
@@ -188,9 +190,10 @@ Open questions are also active backlog signals. If a relevant feature doc has un
 
 ## Relationship To Instruction Files
 
-Feature docs are part of the shared truth layer for the repository. If a future session needs to add guidance:
+Feature docs are part of the shared design and backlog layer for the repository. If a future session needs to add guidance:
 
-- use feature docs for durable design, architecture, scope, and process conventions
+- use feature docs for active design, phased delivery, scope, open questions, and implementation backlog
+- move concise settled architecture and operating conventions into README-style docs once they stabilize
 - use `AGENTS.md` for primary agent workflow behavior
 - use `.github/copilot-instructions.md` only as a thin Copilot-facing compatibility layer
 

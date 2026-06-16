@@ -275,13 +275,22 @@ Outputs:
 
 Checklist:
 
-- [ ] Define the top-level native routing/index skill.
-- [ ] Decide how external skill references are surfaced from that skill.
+- [x] Define the top-level native routing/index skill.
+- [x] Decide how external skill references are surfaced from that skill.
 - [ ] Validate the native experience manually with Codex.
 - [ ] Deprecate `run-skill`.
 
 Exit Criteria:
 Repo-owned skill behavior can be exercised natively through Codex skill discovery.
+
+Current Phase 4 decision:
+
+- the top-level native router skill is `skills/shared/skill-index-router/`
+- it should only be installed when the local skill index exists and contains at least one entry
+- sync should bundle the current local index into the installed router skill as `references/skill-index.yaml`
+- the installed router should inspect that bundled reference only when a specialized external skill may apply
+- it should resolve `repo` + `path`, read the referenced external `SKILL.md`, and follow it
+- absence of the bundled index reference or a matching entry is a normal no-op path
 
 ## Acceptance Criteria
 

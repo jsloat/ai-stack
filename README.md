@@ -208,6 +208,13 @@ Repo-owned skills are now the current source of truth for native Codex skill syn
 - inspect planned native Codex changes with `python3 bin/ai-stack sync-skills --dry-run`
 - apply them with `python3 bin/ai-stack sync-skills --apply`
 
+For the external skill router specifically:
+
+- `skills/shared/skill-index-router/` is the committed router skill package
+- `skill-indexes/local/skill-index.yaml` remains the editable source-of-truth file
+- sync installs the router only when that index has entries
+- sync copies the current index into the installed router skill as `references/skill-index.yaml`
+
 Deletion propagation is conservative:
 
 - if a skill disappears from the repo-owned skill source set and the installed Codex copy was previously managed by `ai-stack`, apply mode backs it up and removes it

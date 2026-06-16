@@ -9,7 +9,8 @@ When working in this repository:
 - read `README.md` for project intent
 - read `docs/features/README.md` for the feature-doc contract
 - read the relevant file in `docs/features/` before making architectural or structural changes
-- treat feature docs as the design source of truth when implementation does not yet exist
+- treat feature docs as the design source of truth only while work is still unsettled or implementation is incomplete
+- move settled architectural truth into README-style docs once it becomes durable repo structure or operating behavior
 - check for incomplete phases, unchecked items, and open questions in relevant feature docs before declaring work complete or starting adjacent design work
 - update docs when you change architecture, conventions, or intended repo structure
 - keep committed content shareable; do not introduce private machine details, absolute local paths, or secrets
@@ -25,7 +26,8 @@ Instruction placement:
 
 When future sessions need to add instructions:
 
-- add durable project rules to `README.md` or `docs/features/*.md`
+- add durable repo architecture and operating rules to `README.md` or other README-style shared docs
+- use `docs/features/*.md` for active design work, backlog, phased implementation plans, and open questions
 - add agent workflow guidance here
 - update `.github/copilot-instructions.md` only when Copilot still needs the rule or pointer
 - avoid adding `.github/instructions/*.instructions.md` unless the narrower scope is clearly justified

@@ -3,4 +3,3 @@ config.local.yaml
 skill-indexes/local/*.yaml
 !skill-indexes/local/*.example.yaml
 skills/local/*
-!skills/local/.gitkeep

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ai_stack.skill_index import LOCAL_INDEX_PATH, load_skill_index
 
 SKILL_SOURCE_ROOTS = (
     ("local", Path("skills/local")),
@@ -15,6 +16,8 @@ SKILL_SOURCE_ROOTS = (
 )
 AI_STACK_MARKER = ".ai-stack-skill.json"
 BACKUP_ROOT = Path.home() / ".codex" / "skills-sync-backups"
+ROUTER_SKILL_NAME = "skill-index-router"
+ROUTER_INDEX_RELATIVE_PATH = Path("references/skill-index.yaml")
 
 
 @dataclass(frozen=True)
@@ -57,12 +60,16 @@ def codex_user_skills_dir() -> Path:
 
 def discover_repo_skills(root: Path) -> List[RepoSkill]:
     skills: List[RepoSkill] = []
+    skill_index = load_skill_index(root)
+    router_enabled = skill_index["rowCount"] > 0
     for scope, source_root in SKILL_SOURCE_ROOTS:
         skills_root = root / source_root
         if not skills_root.exists():
             continue
         for child in sorted(skills_root.iterdir()):
             if not child.is_dir():
+                continue
+            if child.name == ROUTER_SKILL_NAME and not router_enabled:
                 continue
             skill_file = child / "SKILL.md"
             if not skill_file.exists():
@@ -142,7 +149,7 @@ def build_sync_plan(root: Path, installed_skills_dir: Optional[Path] = None) -> 
             )
             continue
 
-        action = "skip" if _skills_match(repo_skill, installed_skill) else "update"
+        action = "skip" if _skills_match(root, repo_skill, installed_skill) else "update"
         actions.append(
             {
                 "skill": repo_skill.name,
@@ -333,22 +340,34 @@ def _summarize_results(results: List[Dict[str, Any]], plan_summary: Dict[str, in
     return summary
 
 
-def _skills_match(repo_skill: RepoSkill, installed_skill: InstalledSkill) -> bool:
-    return _directory_digest(repo_skill.directory, exclude_names=None) == _directory_digest(
+def _skills_match(root: Path, repo_skill: RepoSkill, installed_skill: InstalledSkill) -> bool:
+    if _directory_digest(repo_skill.directory, exclude_relative_paths=None) != _directory_digest(
         installed_skill.directory,
-        exclude_names={AI_STACK_MARKER},
-    )
+        exclude_relative_paths={Path(AI_STACK_MARKER), ROUTER_INDEX_RELATIVE_PATH},
+    ):
+        return False
+
+    if repo_skill.name != ROUTER_SKILL_NAME:
+        return True
+
+    expected_index = load_skill_index(root)
+    generated_path = installed_skill.directory / ROUTER_INDEX_RELATIVE_PATH
+    if not expected_index["found"] or expected_index["rowCount"] == 0:
+        return False
+    if not generated_path.exists():
+        return False
+    return generated_path.read_text() == expected_index["text"]
 
 
-def _directory_digest(directory: Path, exclude_names: Optional[set[str]]) -> str:
+def _directory_digest(directory: Path, exclude_relative_paths: Optional[set[Path]]) -> str:
     digest = hashlib.sha256()
-    exclude_names = exclude_names or set()
+    exclude_relative_paths = exclude_relative_paths or set()
     for path in sorted(directory.rglob("*")):
-        if path.name in exclude_names:
-            continue
         if path.is_dir():
             continue
         relative = path.relative_to(directory)
+        if relative in exclude_relative_paths:
+            continue
         digest.update(str(relative).encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
@@ -368,6 +387,17 @@ def _write_marker(root: Path, repo_skill: RepoSkill, target_dir: Path, synced_at
         "syncedAt": synced_at,
     }
     (target_dir / AI_STACK_MARKER).write_text(json.dumps(marker, indent=2, sort_keys=True) + "\n")
+    if repo_skill.name == ROUTER_SKILL_NAME:
+        _write_router_index_reference(root, target_dir)
+
+
+def _write_router_index_reference(root: Path, target_dir: Path) -> None:
+    skill_index = load_skill_index(root)
+    if not skill_index["found"] or skill_index["rowCount"] == 0 or skill_index["text"] is None:
+        return
+    destination = target_dir / ROUTER_INDEX_RELATIVE_PATH
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(skill_index["text"])
 
 
 def _backup_directory(source_dir: Path, backup_run_root: Path) -> Path:

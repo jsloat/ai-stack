@@ -787,6 +787,61 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(marker["managedBy"], "ai-stack")
         self.assertEqual(marker["sourcePath"], "skills/shared/skill-creator")
 
+    def test_sync_skills_router_is_not_installed_without_index_entries(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "skills" / "shared" / "skill-index-router"
+            source_dir.mkdir(parents=True)
+            (source_dir / "SKILL.md").write_text("# Router\n")
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                installed_skills_dir=home / ".codex" / "skills",
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["sourceSkills"], 0)
+        self.assertEqual(trace["actions"], [])
+
+    def test_sync_skills_router_installs_with_generated_index_reference(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "skills" / "shared" / "skill-index-router"
+            source_dir.mkdir(parents=True)
+            (source_dir / "SKILL.md").write_text("# Router\n")
+            (root / "skill-indexes" / "local").mkdir(parents=True)
+            index_text = textwrap.dedent(
+                """\
+                skills:
+                  - id: pull-request
+                    when: Creating pull requests
+                    repo: ~/Dev/example-tools
+                    path: .github/skills/pull-request/SKILL.md
+                """
+            )
+            (root / "skill-indexes" / "local" / "skill-index.yaml").write_text(index_text)
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                apply=True,
+                installed_skills_dir=home / ".codex" / "skills",
+                backup_root=home / ".codex" / "skills-sync-backups",
+            )
+
+            installed_dir = home / ".codex" / "skills" / "skill-index-router"
+            generated_index = (installed_dir / "references" / "skill-index.yaml").read_text()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["applied"], 1)
+        self.assertEqual(trace["results"][0]["skill"], "skill-index-router")
+        self.assertEqual(generated_index, index_text)
+
 
 if __name__ == "__main__":
     unittest.main()
