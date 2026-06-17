@@ -13,6 +13,13 @@ Minimum package shape:
 - required `SKILL.md`
 - optional `references/`, `scripts/`, `assets/`, or other tightly scoped support files if the skill genuinely needs them
 
-Keep the structure lightweight. The repo-wide contract here is intentionally minimal.
+Runtime expectations:
+
+- a valid skill package is a directory containing `SKILL.md`
+- missing optional companion directories are normal
+- absent `skills/local/` content should be ignored cleanly
+- harness-specific translation belongs in adapters or harness-native sync logic, not in required package metadata
+
+Keep the structure lightweight. Prefer a single `SKILL.md` unless the skill clearly needs packaged references, scripts, or assets.
 
 If you need detailed authoring guidance, use the repo-owned `skill-creator` skill rather than expanding this README into a long style manual.
