@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ai_stack.adapters import run_adapter_dry_mode, run_adapter_live
+from ai_stack.agent_sync import apply_agent_sync_plan, build_agent_sync_plan, SUPPORTED_HARNESSES
 from ai_stack.skill_index import load_skill_index, parse_simple_yaml
 from ai_stack.skill_sync import apply_sync_plan, build_sync_plan
 from ai_stack.telemetry import finalize_telemetry, start_command_timer, telemetry_enabled_from_config
@@ -227,6 +228,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     sync_skills_parser.add_argument("--root", type=Path)
     sync_skills_parser.add_argument("--installed-skills-dir", type=Path, help=argparse.SUPPRESS)
     sync_skills_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
+    sync_agents_parser = subparsers.add_parser("sync-global-instructions")
+    sync_agents_parser.add_argument("--dry-run", action="store_true")
+    sync_agents_parser.add_argument("--apply", action="store_true")
+    sync_agents_parser.add_argument("--root", type=Path)
+    sync_agents_parser.add_argument("--harness", choices=(*SUPPORTED_HARNESSES, "all"), default="all")
+    sync_agents_parser.add_argument("--codex-target-file", type=Path, help=argparse.SUPPRESS)
+    sync_agents_parser.add_argument("--copilot-target-file", type=Path, help=argparse.SUPPRESS)
+    sync_agents_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
     adapter_parser = subparsers.add_parser("adapter")
     adapter_parser.add_argument("harness")
     adapter_parser.add_argument("--prompt", required=True)
@@ -337,6 +346,47 @@ def main(argv: Optional[List[str]] = None) -> int:
             route={
                 "root": str(root),
                 "syncMode": "dry-run" if args.dry_run else "apply",
+            },
+            config=config,
+        )
+        print(json.dumps(trace, indent=2, sort_keys=True))
+        return 0
+    if args.command == "sync-global-instructions":
+        timer = start_command_timer()
+        if args.dry_run and args.apply:
+            parser.error("sync-global-instructions accepts only one of --dry-run or --apply")
+        if not args.dry_run and not args.apply:
+            parser.error("sync-global-instructions requires --dry-run or --apply")
+        root = args.root.resolve() if args.root is not None else infer_repo_root()
+        config = load_local_config(root)
+        target_overrides = {
+            harness: value.resolve()
+            for harness, value in {
+                "codex": args.codex_target_file,
+                "copilot": args.copilot_target_file,
+            }.items()
+            if value is not None
+        }
+        backup_root = args.backup_root.resolve() if args.backup_root is not None else None
+        trace = (
+            build_agent_sync_plan(root, harness=args.harness, target_overrides=target_overrides)
+            if args.dry_run
+            else apply_agent_sync_plan(
+                root,
+                harness=args.harness,
+                target_overrides=target_overrides,
+                backup_root=backup_root,
+            )
+        )
+        trace = _with_telemetry(
+            trace,
+            timer=timer,
+            command="sync-global-instructions",
+            outcome="planned" if args.dry_run else "applied",
+            route={
+                "root": str(root),
+                "syncMode": "dry-run" if args.dry_run else "apply",
+                "targetHarness": args.harness,
             },
             config=config,
         )

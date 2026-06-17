@@ -1,232 +1,159 @@
 # ai-stack
 
-`ai-stack` is a harness-agnostic backbone for AI coding workflows. The project is intended to sit above tools like Codex, Copilot CLI, OpenCode, and similar agents, and provide the infrastructure they usually lack: shared instructions, curated skills, task routing, benchmark data, telemetry, and repeatable workflow definitions.
+`ai-stack` is a harness-agnostic support layer for AI coding workflows. It provides shared instructions, global guardrails, skill sync, skill indexing, and lightweight orchestration around tools like Codex and GitHub Copilot.
 
-The repository is currently in the initialization phase. The first artifacts are design and operating docs that define how the project should grow before implementation hardens around the wrong shape.
+This README is for people using and customizing the repo. Implementation and maintenance guidance for agents belongs in `AGENTS.md`.
 
-## Core Idea
+## What This Repo Does
 
-Treat AI coding as an operations problem, not just a prompt problem.
+- keeps shareable agent behavior in versioned repo artifacts
+- separates shared content from machine-local overlays
+- syncs supported native skill and instruction surfaces into installed harnesses
+- standardizes a small number of conventions for repo-local skills and external skill indexes
+- assumes RTK-backed harness startup is the preferred operating model when supported
 
-The long-term platform direction is:
+## Repository Paths
 
-- route work to the right harness, model, and skill set
-- keep reusable context in stable, versioned project artifacts
-- separate sharable project assets from private local additions
-- measure model and workflow performance with both benchmarks and telemetry
-- make multi-phase workflows explicit instead of burying them inside ad hoc prompts
-- route execution through RTK as a standard part of the stack so harnesses see filtered, lower-noise command output by default
-- prefer compact, typed tool surfaces for large API or MCP integrations when raw tool catalogs would overwhelm context
+Paths in this document are repository-relative unless otherwise noted.
 
-One explicit requirement for this repo is that it should be operable by both Codex and GitHub Copilot without maintaining two divergent documentation systems.
+## Supported Harnesses
 
-## Current Repository Shape
+The repo is designed to stay harness-agnostic, but the first supported machine-global instruction targets are:
 
-This is the current real structure. Planned future areas should stay in docs until they contain real code or user-managed assets.
+- Codex: `$HOME/.codex/AGENTS.md`
+- Copilot CLI: `$HOME/.copilot/copilot-instructions.md`
 
-```text
-ai-stack/
-  AGENTS.md
-  README.md
-  .github/
-    copilot-instructions.md
-    instructions/
-  config.example.yaml
-  config.local.yaml
-  docs/
-    features/
-    repository-structure.md
-  skill-indexes/
-    local/
-  skills/
-    local/
-    shared/
-  ai_stack/
-  tests/
-  bin/
-```
+The first supported native skill sync target is:
 
-## Documentation First
+- Codex: `$HOME/.codex/skills/`
 
-Feature design lives in `docs/features/`. These files are not lightweight notes. Each one should define scope, architecture, phased delivery, and completion criteria clearly enough that an engineer or agent can execute without recovering intent from chat history.
+## Prerequisites
 
-Start here:
+- install the harness you want to use, such as `codex` or Copilot CLI
+- install `rtk` and make sure it is available on `PATH`
+- use Python 3 to run `bin/ai-stack`
 
-- `README.md`
-- `AGENTS.md`
-- `docs/features/README.md`
-- `docs/repository-structure.md`
-- `docs/features/20260529-project-initialization.md`
-
-Key design docs:
-
-- `docs/features/20260529-configuration-contract.md`
-- `docs/features/20260529-skill-packaging.md`
-- `docs/features/20260529-skill-index-contract.md`
-- `docs/features/20260529-eventual-repo-split.md`
-- `docs/features/20260529-adapter-contract.md`
-- `docs/features/20260617-telemetry-foundation.md`
-
-Completed implementation docs move to `docs/features/done/` so the top-level `docs/features/` directory stays focused on active work.
-
-## Design Principles
-
-- Prefer harness-native mechanisms such as `AGENTS.md`, instructions files, and skills over custom prompt glue.
-- Keep `shared` content safe to commit and distribute.
-- Keep `local` content private, environment-specific, and optional.
-- Treat RTK-style command-output filtering as required execution infrastructure for supported harnesses, not as an optional local add-on.
-- Treat Cloudflare Code Mode as a useful adapter pattern for large tool surfaces, not as a universal replacement for normal tool calling.
-- Use workflows only when a task crosses distinct phases with different tools, models, or success criteria.
-- Separate benchmark evidence from runtime telemetry. Both inform routing, but they answer different questions.
-
-## Harness Startup Best Practice
-
-For consumers of this repo, the preferred operating model is to start agent sessions through RTK rather than launching a harness directly.
-
-That is a best practice, not something the repository can universally enforce for every shell or machine. The reason is simple: once an agent session is already running, the repo can shape behavior inside that session, but it cannot retroactively change how the session was launched.
-
-So the recommended pattern is:
-
-- launch Codex, Copilot, or future supported harnesses through RTK whenever possible
-- treat raw harness startup as a fallback or compatibility path, not the preferred default
-- let repo-level adapters and instructions assume RTK-mediated startup is the normal case
-
-For code inside this repository, the rule is stronger:
-
-- any harness process launched by `ai-stack` code should go through RTK unless a documented exemption exists
-
-Common RTK install paths on macOS are:
-
-- `~/.local/bin/rtk`
-- `/opt/homebrew/bin/rtk`
-
-If RTK is missing, the preferred install commands are:
+Preferred RTK install commands:
 
 - `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh`
 - `brew install rtk-ai/tap/rtk`
 
-`ai-stack` code expects `rtk` to be available on `PATH`. If RTK is installed to a standard user-local path such as `~/.local/bin` but still not found, fix the environment instead of relying on repo-local overrides.
+`ai-stack` expects supported harness binaries and `rtk` to already be available on `PATH`.
 
-Supported harness binaries such as `codex` are treated as prerequisites. `ai-stack` expects them to already be installed and available on `PATH`.
+## Quick Start
 
-## Current Status
-
-The repository now has one narrow runnable slice:
+1. Copy `config.example.yaml` to `config.local.yaml`.
+2. Adjust local preferences in `config.local.yaml`.
+3. Review `global-agent-instructions/shared.md`.
+4. Optionally copy `global-agent-instructions/local.example.md` to `global-agent-instructions/local.md` and customize it.
+5. Dry-run global instruction sync:
 
 ```bash
-python3 bin/ai-stack resolve-skill <skill-name>
+python3 bin/ai-stack sync-global-instructions --dry-run
 ```
 
-That slice proves optional local config discovery, local skill-index discovery, deterministic skill resolution, and structured load tracing. The broader orchestration platform is still in the early implementation phase.
+6. Apply global instruction sync:
 
-The runtime also now has:
+```bash
+python3 bin/ai-stack sync-global-instructions --apply
+```
 
-- dry-run adapter routing for `codex` and `copilot`
-- a live `codex` adapter smoke path via `python3 bin/ai-stack adapter codex --prompt "Reply with OK"`
-- a dry-run native Codex sync planner via `python3 bin/ai-stack sync-skills --dry-run`
-- an apply mode via `python3 bin/ai-stack sync-skills --apply`
-- normalized adapter result output with debug traces separated from primary result text
-- a shared inline telemetry envelope on current CLI commands covering route, duration, and outcome
+7. Dry-run skill sync:
 
-Current config also supports:
+```bash
+python3 bin/ai-stack sync-skills --dry-run
+```
 
-- `yolo: true|false` as a top-level execution preference that adapters can map to harness-specific permissive execution behavior
-- `models.implementer` as the currently active model role for live Codex execution paths
+8. Apply skill sync when the plan looks correct:
 
-For repo-scoped commands such as `resolve-skill` and `sync-skills`, `ai-stack` treats this repository as its default home. That means the commands load `config.local.yaml` and `skill-indexes/skill-index.yaml` from the `ai-stack` repo even if you launch them from another working directory.
+```bash
+python3 bin/ai-stack sync-skills --apply
+```
 
-If you ever need to point those commands at a different checkout, use `--root /path/to/ai-stack-like-root`.
+## Global Instructions
 
-## Agent Guidance
+Machine-global instructions live under `global-agent-instructions/`.
 
-This repository uses a simple documentation split:
+Files:
 
-- `README.md` is the human-facing repo summary
-- `docs/features/*.md` hold durable design and implementation planning
-- `AGENTS.md` is the primary agent operating guide
-- `.github/copilot-instructions.md` is a thin Copilot compatibility layer
+- `shared.md`: tracked shared baseline
+- `local.md`: optional gitignored machine-local overlay
+- `local.example.md`: copyable starting point for `local.md`
 
-New durable rules should go in shared docs first. New agent workflow guidance should go in `AGENTS.md`.
+The shared baseline currently installs explicit Git safety rules, including:
 
-Feature docs should be treated as active backlog artifacts, not archival notes. Incomplete phases, unchecked checklist items, and unresolved open questions in `docs/features/*.md` should stay visible and inform what happens next.
+- no commit, push, or PR creation/update without explicit user confirmation
+- no destructive Git operations without explicit user confirmation
 
-## Config Bootstrap
+Use:
 
-The repository currently provides a committed template at `config.example.yaml`.
+```bash
+python3 bin/ai-stack sync-global-instructions --dry-run
+python3 bin/ai-stack sync-global-instructions --apply
+```
 
-Expected flow:
+Optional harness targeting:
 
-1. Copy `config.example.yaml` to `config.local.yaml`
-2. Fill in local preferences and environment-specific values
-3. Keep `config.local.yaml` untracked
+```bash
+python3 bin/ai-stack sync-global-instructions --dry-run --harness codex
+python3 bin/ai-stack sync-global-instructions --apply --harness copilot
+```
 
-The example config should stay focused on real behavioral choices. Repo-owned paths and layout should remain hardcoded until there is a concrete need for relocation or external sources.
+The sync is conservative:
 
-For `codex`, `yolo: true` currently maps to adding:
+- managed targets are updated in place
+- unmanaged non-empty targets are treated as collisions and are not overwritten
+- empty targets are adoptable
+- managed updates are backed up before replacement
 
-- `--sandbox danger-full-access`
-- `--skip-git-repo-check`
+## Skills
 
-to `codex exec` invocations launched by `ai-stack`.
+Repo skills live under `skills/`.
 
-For `codex`, the currently active model-role mapping is:
+- `skills/shared/`: tracked, shareable skills
+- `skills/local/`: gitignored machine-local skills
 
-- `adapter codex` uses `models.implementer`
-- that role is passed through as `codex exec -m <model>`
+Use:
 
-## Current Scaffold
+```bash
+python3 bin/ai-stack sync-skills --dry-run
+python3 bin/ai-stack sync-skills --apply
+```
 
-The current repository keeps only a small number of real top-level directories:
+Skill sync is currently implemented for Codex’s native skill directory.
 
-- `ai_stack/` for runtime code
-- `bin/` for CLI entrypoints
-- `docs/` for shared design and structure docs
-- `skill-indexes/` for the current skill-index convention
-- `skills/` for repo-local skill packages
-- `tests/` for runtime tests
+## Skill Index
 
-Planned areas such as `memory/`, `telemetry/`, and `model-benchmarks/` are still part of the design, but they should not exist as top-level directories until they contain real assets.
+External skill references live in `skill-indexes/`.
 
-For `skill-indexes/`, the currently justified use case is repo-local curation of private or global skill references that a user wants this repo to know about. Shared committed indexes should be added only if the repo later needs curated bundles of repo-owned skills.
+Files:
 
-For `skills/`, there are now two justified uses:
+- `skill-index.example.yaml`: tracked example
+- `skill-index.yaml`: optional gitignored working file
 
-- `skills/local/` for gitignored, machine-specific or personal skills
-- `skills/shared/` for committed, shareable skills that belong to the repo contract
+The skill index is for repo-local curation of external or private skills that should be available to this repo’s workflows.
 
-`skills/local/` is intentionally gitignored so personal or machine-specific skills can live in the repo without becoming part of the committed contract.
+## Useful Commands
 
-The first tracked shared skill is:
+Resolve a skill identifier through the configured skill index:
 
-- `skills/shared/skill-creator/`
+```bash
+python3 bin/ai-stack resolve-skill pull-request
+```
 
-Imported upstream skills may carry a small provenance file so future refresh/update tooling can determine where they came from without relying on commit archaeology.
+Smoke-test the Codex adapter:
 
-Repo-owned skills are now the current source of truth for native Codex skill sync. The current model is:
+```bash
+python3 bin/ai-stack adapter codex --prompt "Reply with OK"
+```
 
-- author or store local-only skills under `skills/local/<skill-name>/`
-- commit shareable skills under `skills/shared/<skill-name>/`
-- inspect planned native Codex changes with `python3 bin/ai-stack sync-skills --dry-run`
-- apply them with `python3 bin/ai-stack sync-skills --apply`
+## Documentation Layout
 
-For the external skill router specifically:
+Use these files for the right job:
 
-- `skills/shared/skill-index-router/` is the committed router skill package
-- `skill-indexes/skill-index.yaml` remains the editable source-of-truth file
-- sync installs the router only when that index has entries
-- sync copies the current index into the installed router skill as `references/skill-index.yaml`
+- `README.md`: user/operator guidance
+- `AGENTS.md`: agent implementation guidance
+- `docs/features/README.md`: feature-doc contract
+- `docs/repository-structure.md`: top-level structure rules
 
-Deletion propagation is conservative:
-
-- if a skill disappears from the repo-owned skill source set and the installed Codex copy was previously managed by `ai-stack`, apply mode backs it up and removes it
-- if a skill under `~/.codex/skills/` was not previously managed by `ai-stack`, sync only reports it and never removes it automatically
-
-The current intended model is one conventional skill-index file that points to multiple external or local-only skills. If that file exists, future tooling can incorporate it. If it does not exist, the repo should proceed without error.
-
-From the core-vs-conventions perspective, the current live areas are:
-
-- `ai_stack/`, `bin/`, and `tests/` for runtime behavior
-- `docs/` and `.github/` for shared guidance and compatibility
-- `skill-indexes/` for the current optional registry artifact
-
-There is currently a standardized example artifact at `skill-indexes/skill-index.example.yaml`, aligned with the current skill-index contract.
+Feature docs in `docs/features/` are the active backlog and design layer. Once behavior becomes settled repo policy, it should be reflected in README-style docs instead of living only in feature plans.

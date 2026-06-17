@@ -104,6 +104,8 @@ Unchecked items are active backlog, not passive documentation. Future sessions s
 
 When a feature doc is substantially complete and no longer the primary place to look for unfinished work, move it to `docs/features/done/` instead of leaving it mixed into the active backlog.
 
+As a default rule, a feature doc with no active checklist items should usually move to `docs/features/done/` unless it still serves as the main live backlog surface for that area.
+
 ## Repository Impact Section
 
 Every feature doc should say which areas of the repo it changes or expects to change. That usually includes one or more of:

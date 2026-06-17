@@ -2,6 +2,8 @@
 
 This file is the primary agent operating guide for this repository.
 
+It should focus on implementation and maintenance behavior for agents working on this repo. Human/operator usage guidance belongs in `README.md`.
+
 It should remain compatible with Codex-style agent workflows. Copilot compatibility lives in `.github/copilot-instructions.md`, which should stay thin and refer back here plus the shared docs.
 
 When working in this repository:
@@ -12,6 +14,7 @@ When working in this repository:
 - treat feature docs as the design source of truth only while work is still unsettled or implementation is incomplete
 - move settled architectural truth into README-style docs once it becomes durable repo structure or operating behavior
 - check for incomplete phases, unchecked items, and open questions in relevant feature docs before declaring work complete or starting adjacent design work
+- when a feature doc no longer has active checklist items and is no longer the main live backlog for that area, move it to `docs/features/done/`
 - update docs when you change architecture, conventions, or intended repo structure
 - keep committed content shareable; do not introduce private machine details, absolute local paths, or secrets
 

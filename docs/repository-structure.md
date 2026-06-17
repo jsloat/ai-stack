@@ -18,6 +18,8 @@ If a future area is still mostly design, document it in `docs/` and add the actu
   Executable entrypoints such as `bin/ai-stack`.
 - `docs/`
   Shared design and structure documentation.
+- `global-agent-instructions/`
+  Shared machine-global instruction sources plus the optional local overlay convention used by global instruction sync.
 - `skill-indexes/`
   Local skill-index conventions and example artifacts consumed by the current runtime.
 - `skills/`
@@ -29,7 +31,6 @@ If a future area is still mostly design, document it in `docs/` and add the actu
 
 These concepts still exist, but they should be added as real top-level directories only when they contain actual content:
 
-- `agents/`
 - `dashboard/`
 - `memory/`
 - `model-benchmarks/`

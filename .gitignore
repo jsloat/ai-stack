@@ -2,4 +2,5 @@ docs/local/*
 config.local.yaml
 skill-indexes/*.yaml
 !skill-indexes/*.example.yaml
+global-agent-instructions/local.md
 skills/local/*

@@ -92,6 +92,46 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             env=env,
         )
 
+    def run_sync_global_instructions_cli(
+        self,
+        cwd: Path,
+        *,
+        extra_env=None,
+        root: Optional[Path] = None,
+        apply: bool = False,
+        harness: str = "all",
+        codex_target_file: Optional[Path] = None,
+        copilot_target_file: Optional[Path] = None,
+        backup_root: Optional[Path] = None,
+    ):
+        env = os.environ.copy()
+        if extra_env is not None:
+            env.update(extra_env)
+        cmd = [
+            sys.executable,
+            str(CLI_PATH),
+            "sync-global-instructions",
+            "--apply" if apply else "--dry-run",
+            "--harness",
+            harness,
+        ]
+        if root is not None:
+            cmd.extend(["--root", str(root)])
+        if codex_target_file is not None:
+            cmd.extend(["--codex-target-file", str(codex_target_file)])
+        if copilot_target_file is not None:
+            cmd.extend(["--copilot-target-file", str(copilot_target_file)])
+        if backup_root is not None:
+            cmd.extend(["--backup-root", str(backup_root)])
+        return subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+
     def test_absent_local_config_and_index_are_clean_no_ops(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.run_cli(Path(tmpdir), "pull-request", root=Path(tmpdir))
@@ -830,6 +870,124 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["results"][0]["skill"], "skill-index-router")
         self.assertEqual(generated_index, index_text)
         self.assert_telemetry(trace, command="sync-skills", outcome="applied", capture_enabled=True)
+
+    def test_sync_global_instructions_dry_run_plans_install_for_all_harnesses(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "global-agent-instructions"
+            source_dir.mkdir(parents=True)
+            (source_dir / "shared.md").write_text("# Shared\n\n- Never commit without confirmation.\n")
+            (source_dir / "local.example.md").write_text("# Local Overlay\n")
+
+            result = self.run_sync_global_instructions_cli(
+                root,
+                root=root,
+                codex_target_file=home / ".codex" / "AGENTS.md",
+                copilot_target_file=home / ".copilot" / "copilot-instructions.md",
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["install"], 2)
+        self.assertEqual(trace["summary"]["unknownCollision"], 0)
+        self.assertEqual(trace["source"]["shared"]["path"], "global-agent-instructions/shared.md")
+        self.assertFalse(trace["source"]["local"]["found"])
+        self.assertEqual(
+            [action["harness"] for action in trace["actions"]],
+            ["codex", "copilot"],
+        )
+        self.assertEqual(
+            [action["action"] for action in trace["actions"]],
+            ["install", "install"],
+        )
+        self.assert_telemetry(trace, command="sync-global-instructions", outcome="planned", capture_enabled=True)
+        self.assertEqual(trace["telemetry"]["route"]["targetHarness"], "all")
+
+    def test_sync_global_instructions_apply_installs_shared_and_local_overlay_for_codex(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "global-agent-instructions"
+            source_dir.mkdir(parents=True)
+            (source_dir / "shared.md").write_text("# Shared\n\n- Never push without confirmation.\n")
+            (source_dir / "local.md").write_text("# Local\n\n- Use machine-local overlays.\n")
+            (source_dir / "local.example.md").write_text("# Local Overlay\n")
+
+            target_file = home / ".codex" / "AGENTS.md"
+            result = self.run_sync_global_instructions_cli(
+                root,
+                root=root,
+                apply=True,
+                harness="codex",
+                codex_target_file=target_file,
+                backup_root=home / ".ai-stack" / "agent-sync-backups",
+            )
+
+            installed_text = target_file.read_text()
+            marker = json.loads((target_file.parent / ".ai-stack-global-instructions.json").read_text())
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["applied"], 1)
+        self.assertIn("Never push without confirmation.", installed_text)
+        self.assertIn("Use machine-local overlays.", installed_text)
+        self.assertEqual(marker["managedBy"], "ai-stack")
+        self.assertEqual(marker["harness"], "codex")
+        self.assertEqual(marker["sourceDirectory"], "global-agent-instructions")
+        self.assert_telemetry(trace, command="sync-global-instructions", outcome="applied", capture_enabled=True)
+
+    def test_sync_global_instructions_dry_run_blocks_unmanaged_collision(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "global-agent-instructions"
+            source_dir.mkdir(parents=True)
+            (source_dir / "shared.md").write_text("# Shared\n\n- Never commit without confirmation.\n")
+            (source_dir / "local.example.md").write_text("# Local Overlay\n")
+            target_file = home / ".copilot" / "copilot-instructions.md"
+            target_file.parent.mkdir(parents=True)
+            target_file.write_text("# Existing\n")
+
+            result = self.run_sync_global_instructions_cli(
+                root,
+                root=root,
+                harness="copilot",
+                copilot_target_file=target_file,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["unknownCollision"], 1)
+        self.assertEqual(trace["actions"][0]["action"], "unknown-collision")
+        self.assertEqual(trace["actions"][0]["harness"], "copilot")
+        self.assert_telemetry(trace, command="sync-global-instructions", outcome="planned", capture_enabled=True)
+
+    def test_sync_global_instructions_dry_run_adopts_empty_unmanaged_target(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            source_dir = root / "global-agent-instructions"
+            source_dir.mkdir(parents=True)
+            (source_dir / "shared.md").write_text("# Shared\n\n- Never commit without confirmation.\n")
+            (source_dir / "local.example.md").write_text("# Local Overlay\n")
+            target_file = home / ".codex" / "AGENTS.md"
+            target_file.parent.mkdir(parents=True)
+            target_file.write_text("")
+
+            result = self.run_sync_global_instructions_cli(
+                root,
+                root=root,
+                harness="codex",
+                codex_target_file=target_file,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["install"], 1)
+        self.assertEqual(trace["summary"]["unknownCollision"], 0)
+        self.assertEqual(trace["actions"][0]["action"], "install")
+        self.assertEqual(trace["actions"][0]["harness"], "codex")
 
 
 if __name__ == "__main__":
