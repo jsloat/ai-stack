@@ -65,6 +65,7 @@ Key design docs:
 - `docs/features/20260529-skill-index-contract.md`
 - `docs/features/20260529-eventual-repo-split.md`
 - `docs/features/20260529-adapter-contract.md`
+- `docs/features/20260617-telemetry-foundation.md`
 
 Completed implementation docs move to `docs/features/done/` so the top-level `docs/features/` directory stays focused on active work.
 
@@ -125,6 +126,7 @@ The runtime also now has:
 - a dry-run native Codex sync planner via `python3 bin/ai-stack sync-skills --dry-run`
 - an apply mode via `python3 bin/ai-stack sync-skills --apply`
 - normalized adapter result output with debug traces separated from primary result text
+- a shared inline telemetry envelope on current CLI commands covering route, duration, and outcome
 
 Current config also supports:
 

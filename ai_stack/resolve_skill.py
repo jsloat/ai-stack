@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from ai_stack.adapters import run_adapter_dry_mode, run_adapter_live
 from ai_stack.skill_index import load_skill_index, parse_simple_yaml
 from ai_stack.skill_sync import apply_sync_plan, build_sync_plan
+from ai_stack.telemetry import finalize_telemetry, start_command_timer, telemetry_enabled_from_config
 
 
 DEFAULT_CONFIG = {
@@ -194,6 +195,26 @@ def get_model_for_role(config_effective: Dict[str, Any], role: str) -> Optional[
     return str(model) if model else None
 
 
+def _with_telemetry(
+    trace: Dict[str, Any],
+    *,
+    timer: Dict[str, Any],
+    command: str,
+    outcome: str,
+    route: Dict[str, Any],
+    config: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    enriched = dict(trace)
+    enriched["telemetry"] = finalize_telemetry(
+        timer,
+        command=command,
+        outcome=outcome,
+        route=route,
+        capture_enabled=telemetry_enabled_from_config(config),
+    )
+    return enriched
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="ai-stack")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -214,11 +235,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "resolve-skill":
+        timer = start_command_timer()
         root = args.root.resolve() if args.root is not None else infer_repo_root()
         trace = resolve_skill(root, args.skill)
+        trace = _with_telemetry(
+            trace,
+            timer=timer,
+            command="resolve-skill",
+            outcome="matched" if trace["config"]["valid"] and trace["resolution"]["matched"] else (
+                "blocked" if not trace["config"]["valid"] else "not-matched"
+            ),
+            route={
+                "root": str(root),
+                "requestedSkill": args.skill,
+                "selectedHarness": trace["adapter"]["selected"],
+                "adapterMode": trace["adapter"]["mode"],
+            },
+            config=trace["config"],
+        )
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["config"]["valid"] and trace["resolution"]["matched"] else 1
     if args.command == "adapter":
+        timer = start_command_timer()
         root = args.root.resolve() if args.root is not None else infer_repo_root()
         config = load_local_config(root)
         if not config["valid"]:
@@ -235,6 +273,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                     },
                 },
             }
+            trace = _with_telemetry(
+                trace,
+                timer=timer,
+                command="adapter",
+                outcome="blocked",
+                route={
+                    "root": str(root),
+                    "selectedHarness": args.harness,
+                    "adapterMode": "live",
+                    "promptLength": len(args.prompt),
+                },
+                config=config,
+            )
             print(json.dumps(trace, indent=2, sort_keys=True))
             return 1
         trace = {
@@ -248,20 +299,46 @@ def main(argv: Optional[List[str]] = None) -> int:
                 },
             ),
         }
+        trace = _with_telemetry(
+            trace,
+            timer=timer,
+            command="adapter",
+            outcome=str(trace["adapter"]["status"]),
+            route={
+                "root": str(root),
+                "selectedHarness": args.harness,
+                "adapterMode": trace["adapter"]["mode"],
+                "promptLength": len(args.prompt),
+            },
+            config=config,
+        )
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0 if trace["adapter"]["status"] == "completed" else 1
     if args.command == "sync-skills":
+        timer = start_command_timer()
         if args.dry_run and args.apply:
             parser.error("sync-skills accepts only one of --dry-run or --apply")
         if not args.dry_run and not args.apply:
             parser.error("sync-skills requires --dry-run or --apply")
         root = args.root.resolve() if args.root is not None else infer_repo_root()
+        config = load_local_config(root)
         installed_skills_dir = args.installed_skills_dir.resolve() if args.installed_skills_dir is not None else None
         backup_root = args.backup_root.resolve() if args.backup_root is not None else None
         trace = (
             build_sync_plan(root, installed_skills_dir=installed_skills_dir)
             if args.dry_run
             else apply_sync_plan(root, installed_skills_dir=installed_skills_dir, backup_root=backup_root)
+        )
+        trace = _with_telemetry(
+            trace,
+            timer=timer,
+            command="sync-skills",
+            outcome="planned" if args.dry_run else "applied",
+            route={
+                "root": str(root),
+                "syncMode": "dry-run" if args.dry_run else "apply",
+            },
+            config=config,
         )
         print(json.dumps(trace, indent=2, sort_keys=True))
         return 0

@@ -16,6 +16,18 @@ CLI_PATH = REPO_ROOT / "bin" / "ai-stack"
 
 
 class CliResolutionAndAdapterTests(unittest.TestCase):
+    def assert_telemetry(self, trace, *, command: str, outcome: str, capture_enabled: bool):
+        self.assertIn("telemetry", trace)
+        telemetry = trace["telemetry"]
+        self.assertEqual(telemetry["command"], command)
+        self.assertEqual(telemetry["outcome"], outcome)
+        self.assertEqual(telemetry["captureEnabled"], capture_enabled)
+        self.assertIsInstance(telemetry["startedAt"], str)
+        self.assertIsInstance(telemetry["finishedAt"], str)
+        self.assertIsInstance(telemetry["durationMs"], int)
+        self.assertGreaterEqual(telemetry["durationMs"], 0)
+        self.assertIsInstance(telemetry["route"], dict)
+
     def test_infer_repo_root_matches_expected_checkout_root(self):
         inferred_root = infer_repo_root()
 
@@ -96,6 +108,9 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["mode"], "dry-run")
         self.assertEqual(trace["adapter"]["status"], "skipped")
         self.assertFalse(trace["adapter"]["attempted"])
+        self.assert_telemetry(trace, command="resolve-skill", outcome="not-matched", capture_enabled=True)
+        self.assertEqual(trace["telemetry"]["route"]["requestedSkill"], "pull-request")
+        self.assertEqual(trace["telemetry"]["route"]["selectedHarness"], "copilot")
 
     def test_example_index_is_not_used_as_runtime_input(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -145,6 +160,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["details"]["reason"], "invalid-config")
         self.assertFalse(trace["skillIndex"]["found"])
         self.assertFalse(trace["resolution"]["matched"])
+        self.assert_telemetry(trace, command="resolve-skill", outcome="blocked", capture_enabled=False)
 
     def test_invalid_config_yaml_blocks_adapter_command_with_structured_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -169,6 +185,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["status"], "blocked")
         self.assertEqual(trace["adapter"]["details"]["reason"], "invalid-config")
         self.assertFalse(trace["adapter"]["attempted"])
+        self.assert_telemetry(trace, command="adapter", outcome="blocked", capture_enabled=False)
+        self.assertEqual(trace["telemetry"]["route"]["selectedHarness"], "codex")
 
     def test_skill_resolves_from_skill_index(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -226,6 +244,9 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["status"], "ready")
         self.assertTrue(trace["adapter"]["attempted"])
         self.assertEqual(trace["adapter"]["details"]["skillPath"], ".github/skills/pull-request/SKILL.md")
+        self.assert_telemetry(trace, command="resolve-skill", outcome="matched", capture_enabled=False)
+        self.assertEqual(trace["telemetry"]["route"]["requestedSkill"], "pull-request")
+        self.assertEqual(trace["telemetry"]["route"]["selectedHarness"], "codex")
 
     def test_missing_skill_in_existing_index_returns_not_found_trace(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -256,6 +277,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertTrue(trace["adapter"]["found"])
         self.assertEqual(trace["adapter"]["status"], "skipped")
         self.assertFalse(trace["adapter"]["attempted"])
+        self.assert_telemetry(trace, command="resolve-skill", outcome="not-matched", capture_enabled=True)
 
     def test_unknown_adapter_is_reported_deterministically(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -285,6 +307,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertFalse(trace["adapter"]["found"])
         self.assertEqual(trace["adapter"]["status"], "unsupported")
         self.assertFalse(trace["adapter"]["attempted"])
+        self.assert_telemetry(trace, command="resolve-skill", outcome="not-matched", capture_enabled=True)
 
     def test_codex_live_adapter_reports_success_with_fake_executable(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -393,6 +416,9 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["details"]["harness"]["model"], "gpt-5.5")
         self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
         self.assertTrue(trace["adapter"]["details"]["harness"]["yolo"])
+        self.assert_telemetry(trace, command="adapter", outcome="completed", capture_enabled=False)
+        self.assertEqual(trace["telemetry"]["route"]["selectedHarness"], "codex")
+        self.assertEqual(trace["telemetry"]["route"]["adapterMode"], "live")
 
     def test_codex_live_adapter_reports_missing_rtk_cleanly(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -429,6 +455,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             'export PATH="$HOME/.local/bin:$PATH"',
             trace["adapter"]["details"]["rtk"]["install"]["pathSuggestion"],
         )
+        self.assert_telemetry(trace, command="adapter", outcome="failed", capture_enabled=True)
 
     def test_codex_live_adapter_reports_missing_codex_cleanly(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -477,6 +504,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "codex")
         self.assertEqual(trace["adapter"]["details"]["harness"]["command"], "codex")
         self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
+        self.assert_telemetry(trace, command="adapter", outcome="failed", capture_enabled=True)
 
     def test_run_skill_command_is_removed(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -548,6 +576,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["install"], 2)
         self.assertEqual(trace["summary"]["unknownInstalled"], 1)
         self.assertEqual(trace["summary"]["unknownCollision"], 0)
+        self.assert_telemetry(trace, command="sync-skills", outcome="planned", capture_enabled=True)
+        self.assertEqual(trace["telemetry"]["route"]["syncMode"], "dry-run")
         self.assertEqual(
             [action["skill"] for action in trace["actions"]],
             ["scriptable-handoff", "todoist-cli"],
@@ -583,6 +613,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["unknownCollision"], 1)
         self.assertEqual(trace["actions"][0]["skill"], "todoist-cli")
         self.assertEqual(trace["actions"][0]["action"], "unknown-collision")
+        self.assert_telemetry(trace, command="sync-skills", outcome="planned", capture_enabled=True)
 
     def test_sync_skills_dry_run_skips_unchanged_managed_skill(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
@@ -618,6 +649,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["update"], 0)
         self.assertEqual(trace["actions"][0]["action"], "skip")
         self.assertEqual(trace["installed"]["managed"][0]["name"], "todoist-cli")
+        self.assert_telemetry(trace, command="sync-skills", outcome="planned", capture_enabled=True)
 
     def test_sync_skills_dry_run_reports_remove_for_managed_skill_missing_from_source(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
@@ -647,6 +679,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["remove"], 1)
         self.assertEqual(trace["actions"][0]["action"], "remove")
         self.assertEqual(trace["actions"][0]["skill"], "todoist-cli")
+        self.assert_telemetry(trace, command="sync-skills", outcome="planned", capture_enabled=True)
 
     def test_sync_skills_apply_installs_local_skills_and_writes_marker(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
@@ -675,6 +708,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertTrue(installed_skill_exists)
         self.assertEqual(marker["managedBy"], "ai-stack")
         self.assertEqual(marker["sourcePath"], "skills/local/todoist-cli")
+        self.assert_telemetry(trace, command="sync-skills", outcome="applied", capture_enabled=True)
 
     def test_sync_skills_apply_removes_managed_skill_with_backup_when_missing_from_source(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
@@ -710,6 +744,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["applied"], 1)
         self.assertFalse(installed_dir.exists())
         self.assertEqual(len(backup_skill_files), 1)
+        self.assert_telemetry(trace, command="sync-skills", outcome="applied", capture_enabled=True)
 
     def test_sync_skills_apply_installs_shared_skill(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
@@ -737,6 +772,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertTrue(installed_skill_exists)
         self.assertEqual(marker["managedBy"], "ai-stack")
         self.assertEqual(marker["sourcePath"], "skills/shared/skill-creator")
+        self.assert_telemetry(trace, command="sync-skills", outcome="applied", capture_enabled=True)
 
     def test_sync_skills_router_is_not_installed_without_index_entries(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
@@ -756,6 +792,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         trace = json.loads(result.stdout)
         self.assertEqual(trace["summary"]["sourceSkills"], 0)
         self.assertEqual(trace["actions"], [])
+        self.assert_telemetry(trace, command="sync-skills", outcome="planned", capture_enabled=True)
 
     def test_sync_skills_router_installs_with_generated_index_reference(self):
         with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
@@ -792,6 +829,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["applied"], 1)
         self.assertEqual(trace["results"][0]["skill"], "skill-index-router")
         self.assertEqual(generated_index, index_text)
+        self.assert_telemetry(trace, command="sync-skills", outcome="applied", capture_enabled=True)
 
 
 if __name__ == "__main__":

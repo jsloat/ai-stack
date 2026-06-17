@@ -199,7 +199,7 @@ Checklist:
 
 - [x] Select the first harness target.
 - [x] Implement the smallest useful command path, likely around context resolution or skill discovery.
-- [ ] Capture enough telemetry to observe route, duration, and outcome.
+- [x] Capture enough telemetry to observe route, duration, and outcome.
 - [x] Validate that the implementation still matches the documented repo contract.
 
 Exit Criteria:
@@ -228,7 +228,6 @@ The repo has a minimal executable path that confirms the initialization docs wer
 
 ## Follow-Up Work
 
-- Finish the first telemetry contract and implementation slice so the remaining Phase 4 item is real rather than implied.
+- Extend the telemetry foundation toward persisted events and later dashboard work once there is more than one meaningful event source.
 - Keep moving settled structure from feature docs into README-style shared docs as runtime behavior stabilizes.
 - Draft a dedicated feature doc for model benchmarks and routing inputs.
-- Draft a dedicated feature doc for telemetry and the execution dashboard.
