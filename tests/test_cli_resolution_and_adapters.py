@@ -349,6 +349,27 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertFalse(trace["adapter"]["attempted"])
         self.assert_telemetry(trace, command="resolve-skill", outcome="not-matched", capture_enabled=True)
 
+    def test_copilot_live_adapter_reports_rtk_exemption_cleanly(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            result = self.run_adapter_cli(root, "copilot", "Reply with OK", root=root)
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["adapter"]["selected"], "copilot")
+        self.assertEqual(trace["adapter"]["mode"], "live")
+        self.assertEqual(trace["adapter"]["status"], "unsupported")
+        self.assertFalse(trace["adapter"]["attempted"])
+        self.assertEqual(trace["adapter"]["details"]["reason"], "live-execution-not-supported")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "exempt")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["mediation"], "exempt")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["reason"], "harness-exempt-from-rtk")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "copilot")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["executionSupport"], "dry-run-only")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["rtkSupport"], "exempt")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["toolSurface"], "native-cli")
+        self.assert_telemetry(trace, command="adapter", outcome="unsupported", capture_enabled=True)
+
     def test_codex_live_adapter_reports_success_with_fake_executable(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -450,9 +471,13 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             ],
         )
         self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "active")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["mediation"], "required")
         self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], str(path_dir / "rtk"))
         self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "codex")
         self.assertEqual(trace["adapter"]["details"]["harness"]["command"], str(path_dir / "codex"))
+        self.assertEqual(trace["adapter"]["details"]["harness"]["executionSupport"], "live")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["rtkSupport"], "required")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["toolSurface"], "native-cli")
         self.assertEqual(trace["adapter"]["details"]["harness"]["model"], "gpt-5.5")
         self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
         self.assertTrue(trace["adapter"]["details"]["harness"]["yolo"])
@@ -486,6 +511,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertIn("No such file or directory", trace["adapter"]["debug"]["stderr"])
         self.assertEqual(trace["adapter"]["details"]["reason"], "rtk-missing")
         self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "missing")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["mediation"], "required")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["reason"], "binary-not-found")
         self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], "rtk")
         self.assertIn(
             "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh",
@@ -540,9 +567,13 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertIn("No such file or directory", trace["adapter"]["debug"]["stderr"])
         self.assertEqual(trace["adapter"]["details"]["reason"], "codex-missing")
         self.assertEqual(trace["adapter"]["details"]["rtk"]["status"], "active")
+        self.assertEqual(trace["adapter"]["details"]["rtk"]["mediation"], "required")
         self.assertEqual(trace["adapter"]["details"]["rtk"]["command"], str(path_dir / "rtk"))
         self.assertEqual(trace["adapter"]["details"]["harness"]["id"], "codex")
         self.assertEqual(trace["adapter"]["details"]["harness"]["command"], "codex")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["executionSupport"], "live")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["rtkSupport"], "required")
+        self.assertEqual(trace["adapter"]["details"]["harness"]["toolSurface"], "native-cli")
         self.assertIsNone(trace["adapter"]["details"]["harness"]["install"])
         self.assert_telemetry(trace, command="adapter", outcome="failed", capture_enabled=True)
 

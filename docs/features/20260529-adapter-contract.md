@@ -70,6 +70,13 @@ RTK should be treated as required execution infrastructure for supported harness
 - missing RTK should be treated as a setup or compatibility problem, not as the normal happy path
 - any harness process launched by `ai-stack` code should go through RTK unless a documented exemption exists
 
+Current reporting contract:
+
+- `details.rtk.mediation` reports whether RTK is `required` or `exempt`
+- `details.rtk.status` reports runtime state such as `active`, `missing`, or `exempt`
+- `details.rtk.reason` is used only when a non-happy-path explanation matters
+- `details.harness.rtkSupport` reports whether the harness is RTK-`required` or RTK-`exempt`
+
 ### Large Tool-Surface Pattern
 
 Some adapters may need to expose very large MCP or API surfaces to a model. In those cases, a Code Mode style pattern is relevant:
@@ -79,6 +86,12 @@ Some adapters may need to expose very large MCP or API surfaces to a model. In t
 - keep the adapter responsible for sandboxing, execution, and result normalization
 
 This should be treated as an adapter pattern, not as a universal rule for every harness integration. It is most relevant when raw tool catalogs would consume too much context or force excessive tool-calling round trips.
+
+Current near-term decision:
+
+- no current adapter needs a Code Mode style surface
+- current adapters use native CLI invocation or dry-run-only stubs
+- revisit Code Mode only when a real large tool-surface integration exists
 
 ### Minimum Adapter Responsibilities
 
@@ -151,6 +164,17 @@ Short-term likely targets:
 - `copilot`
 
 But the contract should stay generic enough that adding another harness does not require changing core runtime semantics.
+
+### Current Harness Support Matrix
+
+- `codex`
+  - live execution supported
+  - RTK required
+  - trace should report `mediation: required`
+- `copilot`
+  - dry-run only in the current runtime
+  - RTK exempt for now because no live adapter path exists yet
+  - trace should report `mediation: exempt` on unsupported live execution attempts
 
 ## Repository Impact
 
@@ -230,9 +254,9 @@ Checklist:
 - [x] Define the first real harness invocation contract.
 - [x] Normalize success, failure, and unsupported cases.
 - [x] Add tests for adapter-specific edge cases.
-- [ ] Define how adapter traces should report RTK mediation, bypass, or setup failure.
-- [ ] Define which harnesses are RTK-supported versus exempt.
-- [ ] Decide whether any adapter needs a Code Mode style tool-surface path in the near term.
+- [x] Define how adapter traces should report RTK mediation, bypass, or setup failure.
+- [x] Define which harnesses are RTK-supported versus exempt.
+- [x] Decide whether any adapter needs a Code Mode style tool-surface path in the near term.
 
 Exit Criteria:
 One harness can be exercised through the adapter boundary in a real execution mode.

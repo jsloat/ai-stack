@@ -13,7 +13,9 @@ class AdapterDebug:
 @dataclass(frozen=True)
 class RtkDetails:
     status: str
+    mediation: str
     command: str
+    reason: Optional[str] = None
     install: Optional[dict[str, Any]] = None
 
 
@@ -21,6 +23,9 @@ class RtkDetails:
 class HarnessDetails:
     id: str
     command: str
+    executionSupport: str = "unsupported"
+    rtkSupport: str = "exempt"
+    toolSurface: str = "native-cli"
     model: Optional[str] = None
     yolo: bool = False
     install: Optional[dict[str, Any]] = None

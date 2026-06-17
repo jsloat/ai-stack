@@ -50,7 +50,22 @@ class BasicAdapter:
             mode="live",
             status="unsupported",
             attempted=False,
-            details=AdapterDetails(reason="live-execution-not-supported"),
+            details=AdapterDetails(
+                reason="live-execution-not-supported",
+                rtk=RtkDetails(
+                    status="exempt",
+                    mediation="exempt",
+                    command="",
+                    reason="harness-exempt-from-rtk",
+                ),
+                harness=HarnessDetails(
+                    id=self.harness_id,
+                    command=self.harness_id,
+                    executionSupport="dry-run-only",
+                    rtkSupport="exempt",
+                    toolSurface="native-cli",
+                ),
+            ),
         )
 
 
@@ -102,12 +117,17 @@ class CodexAdapter(BasicAdapter):
                     resolvedSkillFilePath=context.get("resolvedSkillFilePath"),
                     rtk=RtkDetails(
                         status=rtk_status,
+                        mediation="required",
                         command=rtk_bin,
+                        reason="binary-not-found" if reason == "rtk-missing" else None,
                         install=rtk_install_hint() if reason == "rtk-missing" else None,
                     ),
                     harness=HarnessDetails(
                         id=self.harness_id,
                         command=codex_bin,
+                        executionSupport="live",
+                        rtkSupport="required",
+                        toolSurface="native-cli",
                         model=str(model) if model is not None else None,
                         yolo=yolo,
                         install=None,
@@ -136,11 +156,15 @@ class CodexAdapter(BasicAdapter):
                 resolvedSkillFilePath=context.get("resolvedSkillFilePath"),
                 rtk=RtkDetails(
                     status="active",
+                    mediation="required",
                     command=rtk_bin,
                 ),
                 harness=HarnessDetails(
                     id=self.harness_id,
                     command=codex_bin,
+                    executionSupport="live",
+                    rtkSupport="required",
+                    toolSurface="native-cli",
                     model=str(model) if model is not None else None,
                     yolo=yolo,
                     install=None,
