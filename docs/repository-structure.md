@@ -8,6 +8,8 @@ Do not create placeholder top-level directories that contain only a README and n
 
 If a future area is still mostly design, document it in `docs/` and add the actual directory only when it starts carrying real repository weight.
 
+Keep runtime code independent from examples, templates, and backlog docs unless a runtime dependency is explicitly part of the contract.
+
 ## Current Top-Level Directories
 
 - `.github/`
@@ -26,6 +28,11 @@ If a future area is still mostly design, document it in `docs/` and add the actu
   Repo-local and shared skill packages. This is now justified by real user-managed skill content under `skills/local/` and tracked shared skill content under `skills/shared/`.
 - `tests/`
   Runtime tests.
+
+## Boundary Notes
+
+- Setup and sync utilities are part of the runtime surface, but they are distinct from higher-order orchestration.
+- Example artifacts and design docs should inform runtime behavior by contract only, not become accidental hard dependencies.
 
 ## Planned Directories
 

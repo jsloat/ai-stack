@@ -11,6 +11,7 @@ This README is for people using and customizing the repo. Implementation and mai
 - syncs supported native skill and instruction surfaces into installed harnesses
 - standardizes a small number of conventions for repo-local skills and external skill indexes
 - assumes RTK-backed harness startup is the preferred operating model when supported
+- keeps setup/sync utilities separate from higher-order orchestration work
 
 ## Repository Paths
 
