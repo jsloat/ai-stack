@@ -19,4 +19,11 @@ Discovery should be by convention, not config:
 - `skill-index.example.yaml` is documentation and bootstrap material only
 - if it does not exist, future tooling should ignore it and continue normally
 
+Current observability contract:
+
+- `resolve-skill` emits the machine-readable resolution trace for skill-index lookup
+- `skillIndex` reports whether the runtime index was found and parsed
+- `resolution` reports the requested skill, whether it matched, and the selected `repo` and `path` when a row matches
+- malformed rows are skipped rather than crashing the whole lookup
+
 Committed shared indexes are not a default requirement. Add them later only if the repository gains enough repo-owned skills that curated shared bundles become useful.

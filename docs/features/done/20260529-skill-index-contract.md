@@ -129,7 +129,7 @@ The minimum future runtime behavior should be:
 1. if the skill index file is absent, continue normally
 2. if present, parse the `skills` list
 3. resolve referenced skill locations deterministically
-4. emit a load trace when a referenced skill is selected and loaded
+4. emit a structured resolution trace when a referenced skill is selected and loaded
 
 Rows missing any required field should be skipped rather than crashing the whole lookup.
 
@@ -138,6 +138,30 @@ The runtime does not initially need to:
 - execute arbitrary shell from the index
 - guarantee repo freshness
 - understand broader operational prose
+
+### Resolution Trace Contract
+
+The earlier feature docs used the term "load trace" for the machine-readable JSON output emitted by the first executable slice.
+
+In current implementation terms, this is the `resolve-skill` command output. For skill-index-driven resolution, the trace contract should be:
+
+- `skillIndex` reports whether `skill-indexes/skill-index.yaml` was found and parsed
+- `skillIndex.rowCount` reports how many valid rows were available after validation and skipping malformed entries
+- `resolution.requestedSkill` reports the requested skill id
+- `resolution.matched` reports whether any index row matched that requested skill id
+- `resolution.sourceRepo` and `resolution.skillPath` report the selected row's resolved `repo` and `path` when a match exists
+
+This contract does not require a separate tracing system. It defines how index-driven resolution appears in the existing structured CLI output so tests and future tooling can observe it consistently.
+
+### Freshness and Update Policy
+
+For now, freshness and update behavior should remain documented workflow guidance rather than structured runtime metadata.
+
+That means:
+
+- shared repo contract stops at parseable registry entries and observable resolution traces
+- local teams or operators may keep pre-flight update procedures in surrounding docs or private workflow notes
+- future runtime work may add optional structured metadata if a real use case appears, but the current schema should stay narrow
 
 ### Native Router Integration
 
@@ -224,8 +248,8 @@ Checklist:
 - [x] Define how the runtime discovers the index file.
 - [x] Define how registry rows are parsed and validated.
 - [x] Define how missing or invalid rows are handled.
-- [ ] Define how load traces report index-driven skill resolution.
-- [ ] Decide whether freshness/update behavior is only documented, or later becomes a structured optional capability.
+- [x] Define how structured resolution traces report index-driven skill resolution.
+- [x] Decide that freshness/update behavior is documented-only for now, with optional structured metadata deferred until a concrete need exists.
 
 Exit Criteria:
 Future tooling can consume the index reliably while leaving environment-specific pre-flight logic optional.
@@ -240,13 +264,11 @@ Future tooling can consume the index reliably while leaving environment-specific
 
 ## Open Questions
 
-- Should freshness/update guidance remain prose-only, or later gain lightweight structured metadata?
+- Should any future structured freshness metadata live in the index itself, or beside it as separate workflow config?
 - Should shared indexes ever exist, and if so, should they be allowed to carry update procedures too?
 - Should the engine ever execute pre-flight/update steps directly, or should that remain a workflow-layer concern?
 
 ## Follow-Up Work
 
-- Update `skill-indexes/skill-index.example.yaml` to reflect this contract.
-- Update `skill-indexes/README.md` to reflect this contract.
-- Use this contract when defining the first load-trace-based skill resolution tests.
-- Revisit freshness/update behavior after the first executable slice exists.
+- Keep `skill-indexes/README.md` aligned with the resolution-trace contract if the CLI JSON shape changes.
+- Revisit freshness/update behavior only if real workflows need machine-readable pre-flight policy.
