@@ -154,6 +154,7 @@ Use these files for the right job:
 
 - `README.md`: user/operator guidance
 - `AGENTS.md`: agent implementation guidance
+- `docs/ideas/`: speculative ideas and deferred concepts that are not active backlog yet
 - `docs/features/README.md`: feature-doc contract
 - `docs/repository-structure.md`: top-level structure rules
 
