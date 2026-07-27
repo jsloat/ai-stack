@@ -228,6 +228,51 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assert_telemetry(trace, command="adapter", outcome="blocked", capture_enabled=False)
         self.assertEqual(trace["telemetry"]["route"]["selectedHarness"], "codex")
 
+    def test_invalid_config_nonexistent_ai_stack_repo_blocks_resolution(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "config.local.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    repos:
+                      aiStack: ./missing-ai-stack
+                    """
+                )
+            )
+
+            result = self.run_cli(root, "pull-request", root=root)
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertFalse(trace["config"]["valid"])
+        self.assertEqual(trace["config"]["errors"], ["repos.aiStack must point to an existing path"])
+        self.assertEqual(trace["adapter"]["status"], "blocked")
+        self.assertEqual(trace["adapter"]["details"]["reason"], "invalid-config")
+        self.assert_telemetry(trace, command="resolve-skill", outcome="blocked", capture_enabled=False)
+
+    def test_valid_config_ai_stack_repo_path_is_accepted(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ai_stack_checkout = root / "worktrees" / "ai-stack"
+            ai_stack_checkout.mkdir(parents=True)
+            (root / "config.local.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    repos:
+                      aiStack: ./worktrees/ai-stack
+                    """
+                )
+            )
+
+            result = self.run_cli(root, "pull-request", root=root)
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertTrue(trace["config"]["valid"])
+        self.assertEqual(trace["config"]["effective"]["repos"]["aiStack"], "./worktrees/ai-stack")
+        self.assertEqual(trace["adapter"]["status"], "skipped")
+        self.assert_telemetry(trace, command="resolve-skill", outcome="not-matched", capture_enabled=True)
+
     def test_skill_resolves_from_skill_index(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -941,7 +986,11 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             home = Path(homedir)
             source_dir = root / "global-agent-instructions"
             source_dir.mkdir(parents=True)
-            (source_dir / "shared.md").write_text("# Shared\n\n- Never push without confirmation.\n")
+            (source_dir / "shared.md").write_text(
+                "# Shared\n\n"
+                "- Never push without confirmation.\n"
+                "- When the user asks to create, update, refine, or restructure a skill and does not name a different target repo, treat that as work in the configured `repos.aiStack` checkout.\n"
+            )
             (source_dir / "local.md").write_text("# Local\n\n- Use machine-local overlays.\n")
             (source_dir / "local.example.md").write_text("# Local Overlay\n")
 
@@ -962,6 +1011,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         trace = json.loads(result.stdout)
         self.assertEqual(trace["summary"]["applied"], 1)
         self.assertIn("Never push without confirmation.", installed_text)
+        self.assertIn("configured `repos.aiStack` checkout", installed_text)
         self.assertIn("Use machine-local overlays.", installed_text)
         self.assertEqual(marker["managedBy"], "ai-stack")
         self.assertEqual(marker["harness"], "codex")

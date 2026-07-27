@@ -24,12 +24,20 @@ DEFAULT_CONFIG = {
     "telemetry": {
         "enabled": True,
     },
+    "orchestration": {
+        "root": None,
+    },
+    "repos": {
+        "aiStack": None,
+    },
 }
 
 
-ALLOWED_TOP_LEVEL_CONFIG_KEYS = {"defaultHarness", "yolo", "models", "telemetry"}
+ALLOWED_TOP_LEVEL_CONFIG_KEYS = {"defaultHarness", "yolo", "models", "telemetry", "orchestration", "repos"}
 ALLOWED_MODEL_ROLE_KEYS = {"planner", "implementer", "cheapVerifier"}
 ALLOWED_TELEMETRY_KEYS = {"enabled"}
+ALLOWED_ORCHESTRATION_KEYS = {"root"}
+ALLOWED_REPO_KEYS = {"aiStack"}
 
 
 def infer_repo_root() -> Path:
@@ -58,7 +66,7 @@ def load_local_config(root: Path) -> Dict[str, Any]:
         return result
 
     result["parsed"] = True
-    errors = validate_local_config(parsed)
+    errors = validate_local_config(parsed, root=root)
     if errors:
         result["errors"] = errors
         result["valid"] = False
@@ -76,7 +84,7 @@ def _deep_merge(dest: Dict[str, Any], src: Dict[str, Any]) -> None:
             dest[key] = value
 
 
-def validate_local_config(parsed: Dict[str, Any]) -> List[str]:
+def validate_local_config(parsed: Dict[str, Any], *, root: Optional[Path] = None) -> List[str]:
     errors: List[str] = []
     unknown_top_level = sorted(set(parsed) - ALLOWED_TOP_LEVEL_CONFIG_KEYS)
     for key in unknown_top_level:
@@ -113,6 +121,39 @@ def validate_local_config(parsed: Dict[str, Any]) -> List[str]:
             enabled = telemetry.get("enabled")
             if enabled is not None and not isinstance(enabled, bool):
                 errors.append("telemetry.enabled must be a boolean")
+
+    orchestration = parsed.get("orchestration")
+    if orchestration is not None:
+        if not isinstance(orchestration, dict):
+            errors.append("orchestration must be a mapping")
+        else:
+            unknown_orchestration_keys = sorted(set(orchestration) - ALLOWED_ORCHESTRATION_KEYS)
+            for key in unknown_orchestration_keys:
+                errors.append(f"Unknown orchestration key: {key}")
+            root = orchestration.get("root")
+            if root is not None and not isinstance(root, str):
+                errors.append("orchestration.root must be a string")
+
+    repos = parsed.get("repos")
+    if repos is not None:
+        if not isinstance(repos, dict):
+            errors.append("repos must be a mapping")
+        else:
+            unknown_repo_keys = sorted(set(repos) - ALLOWED_REPO_KEYS)
+            for key in unknown_repo_keys:
+                errors.append(f"Unknown repos key: {key}")
+            ai_stack_repo = repos.get("aiStack")
+            if ai_stack_repo is not None:
+                if not isinstance(ai_stack_repo, str):
+                    errors.append("repos.aiStack must be a string")
+                elif root is not None:
+                    ai_stack_path = Path(ai_stack_repo).expanduser()
+                    if not ai_stack_path.is_absolute():
+                        ai_stack_path = (root / ai_stack_path).resolve()
+                    if not ai_stack_path.exists():
+                        errors.append("repos.aiStack must point to an existing path")
+                    elif not ai_stack_path.is_dir():
+                        errors.append("repos.aiStack must point to a directory")
 
     return errors
 

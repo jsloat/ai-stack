@@ -11,3 +11,13 @@ models:
 
 telemetry:
   enabled: true
+
+orchestration:
+  # A machine-local path set in config.local.yaml, for example:
+  # root: ~/projects
+  root:
+
+repos:
+  # The machine-local checkout path for ai-stack, for example:
+  # aiStack: ~/Dev/ai-stack
+  aiStack:
