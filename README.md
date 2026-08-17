@@ -1,6 +1,6 @@
 # ai-stack
 
-`ai-stack` is a harness-agnostic support layer for AI coding workflows. It provides shared instructions, global guardrails, skill sync, skill indexing, and lightweight orchestration around tools like Codex and GitHub Copilot.
+`ai-stack` is a harness-agnostic support layer for AI coding workflows. It provides shared instructions, global guardrails, skill sync, skill indexing, and orchestration design work around tools like Codex and GitHub Copilot.
 
 This README is for people using and customizing the repo. Implementation and maintenance guidance for agents belongs in `AGENTS.md`.
 
@@ -12,6 +12,7 @@ This README is for people using and customizing the repo. Implementation and mai
 - standardizes a small number of conventions for repo-local skills and external skill indexes
 - assumes RTK-backed harness startup is the preferred operating model when supported
 - keeps setup/sync utilities separate from higher-order orchestration work
+- documents orchestration contracts before shipping orchestration runtime code
 
 ## Repository Paths
 
@@ -133,6 +134,12 @@ Files:
 - `skill-index.yaml`: optional gitignored working file
 
 The skill index is for repo-local curation of external or private skills that should be available to this repo’s workflows.
+
+## Orchestration Status
+
+Orchestration is currently documented as an active feature area, not yet a shipped CLI/runtime workflow.
+
+Use the feature docs under `docs/features/` as the source of truth for current orchestration design work.
 
 ## Useful Commands
 

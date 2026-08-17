@@ -45,6 +45,7 @@ The initial config contract should support:
 - top-level execution preference toggles such as `yolo`
 - model role selection
 - telemetry enablement
+- orchestration archive root selection
 
 It should not support:
 
@@ -122,6 +123,9 @@ models:
 
 telemetry:
   enabled: true
+
+orchestration:
+  root:
 ```
 
 ### Config Field Rules
@@ -149,6 +153,14 @@ telemetry:
 - only toggles whether runtime telemetry is captured
 - does not define telemetry schema by itself
 
+`orchestration.root`
+
+- selects the top-level storage root for orchestration archives
+- is a machine-local path
+- should be set in `config.local.yaml`, not committed with a private absolute path
+- may point outside the repo, such as a machine-level projects/history directory
+- config chooses only the root location; the archive layout under that root remains fixed by contract
+
 ### Current Runtime Integration
 
 Current command behavior is:
@@ -157,6 +169,7 @@ Current command behavior is:
 - `adapter <harness>` uses the explicit CLI harness argument and does not consult `defaultHarness`
 - live adapter execution currently resolves the `implementer` model role and `yolo` flag from config
 - repo-owned paths such as `docs/features/`, `skills/shared/`, `skills/local/`, and `skill-indexes/skill-index.yaml` remain hardcoded
+- orchestration archive layout remains fixed, but its top-level root may be set by `orchestration.root`
 
 ### RTK
 
@@ -184,6 +197,10 @@ It also constrains what should remain hardcoded for now:
 - local skills path
 - telemetry directory
 - benchmark directory
+
+One exception now has a concrete use case:
+
+- orchestration archive root may be configured because it is intended to be machine-level rather than repo-owned in many environments
 
 ## Phases
 
