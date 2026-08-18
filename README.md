@@ -29,48 +29,89 @@ The first supported native skill sync target is:
 
 - Codex: `$HOME/.codex/skills/`
 
+Copilot CLI skill sync (`$HOME/.copilot/skills/`) is the next planned target. See `docs/features/20260818-copilot-skill-sync.md`.
+
 ## Prerequisites
 
 - install the harness you want to use, such as `codex` or Copilot CLI
 - install `rtk` and make sure it is available on `PATH`
 - use Python 3 to run `bin/ai-stack`
 
-Preferred RTK install commands:
+Install `rtk`:
 
-- `curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh`
-- `brew install rtk-ai/tap/rtk`
+```bash
+brew install rtk-ai/tap/rtk
+# or
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
+```
 
 `ai-stack` expects supported harness binaries and `rtk` to already be available on `PATH`.
 
 ## Quick Start
 
-1. Copy `config.example.yaml` to `config.local.yaml`.
-2. Adjust local preferences in `config.local.yaml`.
-3. Review `global-agent-instructions/shared.md`.
-4. Optionally copy `global-agent-instructions/local.example.md` to `global-agent-instructions/local.md` and customize it.
-5. Dry-run global instruction sync:
+### 1. Create a local config
+
+```bash
+cp config.example.yaml config.local.yaml
+```
+
+Edit `config.local.yaml` with your machine-local values. At minimum:
+
+```yaml
+defaultHarness: copilot   # or codex
+repos:
+  aiStack: ~/Dev/ai-stack  # absolute or ~ path to this checkout
+orchestration:
+  root: ~/projects          # root for orchestrated project work
+```
+
+### 2. Set up a local instruction overlay (optional)
+
+```bash
+cp global-agent-instructions/local.example.md global-agent-instructions/local.md
+```
+
+Edit `local.md` to add machine-specific preferences (personal tool guidance, workflow conventions). This file is gitignored and will be merged into the synced output alongside `shared.md`.
+
+### 3. Sync global agent instructions
+
+The files in `global-agent-instructions/` are the source of truth for machine-global agent behavior. They sync to:
+
+- Codex: `~/.codex/AGENTS.md`
+- Copilot CLI: `~/.copilot/copilot-instructions.md`
 
 ```bash
 python3 bin/ai-stack sync-global-instructions --dry-run
-```
-
-6. Apply global instruction sync:
-
-```bash
 python3 bin/ai-stack sync-global-instructions --apply
 ```
 
-7. Dry-run skill sync:
+**If you see an `unknown-collision`** for a harness target: that file already exists and was not written by `ai-stack`. The sync tool will not overwrite it automatically. Options:
+
+- **Adopt it**: If the existing file has content you want to keep, manually merge it into `global-agent-instructions/local.md`, then clear or delete the target file and re-run `--apply`. The sync will install the merged result and take ownership.
+- **Replace it**: If the existing content is redundant, delete or empty the target file and re-run `--apply`.
+
+### 4. Sync skills
+
+Skills in `skills/shared/` and `skills/local/` sync to the harness native skill directory.
 
 ```bash
 python3 bin/ai-stack sync-skills --dry-run
-```
-
-8. Apply skill sync when the plan looks correct:
-
-```bash
 python3 bin/ai-stack sync-skills --apply
 ```
+
+Currently targets Codex (`~/.codex/skills/`). Copilot support is planned — see `docs/features/20260818-copilot-skill-sync.md`.
+
+**If you see `unknown-collision` for a skill**: an existing unmanaged skill with the same name is in the target directory. The sync tool will not overwrite it. Either rename the existing skill directory to adopt it into the repo, or remove it and re-run.
+
+### 5. Set up the skill index (optional)
+
+The skill index lets you reference skills from other repositories by short ID.
+
+```bash
+cp skill-indexes/skill-index.example.yaml skill-indexes/skill-index.yaml
+```
+
+Edit `skill-index.yaml` with your local external skill registrations. This file is gitignored.
 
 ## Global Instructions
 
@@ -81,6 +122,8 @@ Files:
 - `shared.md`: tracked shared baseline
 - `local.md`: optional gitignored machine-local overlay
 - `local.example.md`: copyable starting point for `local.md`
+
+These files are the source of truth for machine-global agent behavior. For Copilot CLI, this is equivalent to `~/.copilot/copilot-instructions.md` — the sync command writes there. For Codex it writes to `~/.codex/AGENTS.md`. Both are managed targets once adopted.
 
 The shared baseline currently installs explicit Git safety rules, including:
 
@@ -122,7 +165,7 @@ python3 bin/ai-stack sync-skills --dry-run
 python3 bin/ai-stack sync-skills --apply
 ```
 
-Skill sync is currently implemented for Codex’s native skill directory.
+Skill sync is currently implemented for Codex's native skill directory. Copilot CLI support is planned — see `docs/features/20260818-copilot-skill-sync.md`.
 
 ## Skill Index
 
@@ -154,6 +197,38 @@ Smoke-test the Codex adapter:
 ```bash
 python3 bin/ai-stack adapter codex --prompt "Reply with OK"
 ```
+
+## Migrating from an Existing Setup
+
+If you already have skills, global instructions, or agent configuration on this machine before setting up `ai-stack`, use this section to migrate safely.
+
+### Pre-existing global instructions
+
+If `~/.copilot/copilot-instructions.md` or `~/.codex/AGENTS.md` already exist with content you want to keep:
+
+1. Review what's in the existing file.
+2. Move any machine-local preferences into `global-agent-instructions/local.md`.
+3. Verify that `global-agent-instructions/shared.md` covers anything that should be shared.
+4. Clear or delete the target file.
+5. Run `python3 bin/ai-stack sync-global-instructions --apply`.
+
+The sync will take ownership and write the merged result.
+
+### Pre-existing skills
+
+If you have skills in `~/.copilot/skills/` or `~/.codex/skills/` that you want `ai-stack` to own going forward:
+
+- Skills you authored and want to keep: copy them into `skills/shared/` or `skills/local/` as appropriate, then run `sync-skills --apply`. The sync will detect the new installs.
+- Skills you don't want to migrate: leave them in place — the sync tool treats unmanaged skills as `unknown-collision` and will not touch them.
+- Skills that are older versions of something now in this repo: remove or rename the old installed version first to clear the collision, then run `sync-skills --apply`.
+
+### Skill index
+
+If you have an existing skill registry in a harness skill (e.g., `~/.copilot/skills/skill-index/SKILL.md`), migrate those entries into `skill-indexes/skill-index.yaml`. The `skill-index.yaml` file is machine-local (gitignored) and is the canonical source for external skill resolution via `resolve-skill`.
+
+### Projects directory
+
+The `orchestration.root` config key points to the directory where `ai-stack orchestrate` stores project work. If that directory already contains plan files from another workflow (for example, flat Markdown files used by a cascade-worker or similar execution harness), those are safe to leave in place — `ai-stack orchestrate` creates dated subdirectories per project and will not conflict with existing flat files. Once the orchestration CLI is shipped, migrating old plans to the new format is optional and can be done project by project.
 
 ## Documentation Layout
 
