@@ -288,6 +288,7 @@ def _format_sync_skills_human(trace: dict, is_dry_run: bool) -> str:
         "skip": "·",
         "install": "+",
         "update": "~",
+        "drift": "≠",
         "remove": "-",
         "unknown-collision": "!",
         "blocked": "✗",
@@ -300,7 +301,8 @@ def _format_sync_skills_human(trace: dict, is_dry_run: bool) -> str:
     for action in trace.get("actions", []):
         action_name = action.get("action", "")
         icon = icon_by_action.get(action_name, "?")
-        lines.append(f"  {icon}  {action_name:<20}{action.get('skill', '')}")
+        suffix = "  (target was directly edited)" if action_name == "drift" else ""
+        lines.append(f"  {icon}  {action_name:<20}{action.get('skill', '')}{suffix}")
 
     summary = trace.get("summary", {})
     summary_parts = []
@@ -308,6 +310,7 @@ def _format_sync_skills_human(trace: dict, is_dry_run: bool) -> str:
         ("skip", "skipped", "skipped"),
         ("install", "to install" if is_dry_run else "installed", "to install" if is_dry_run else "installed"),
         ("update", "to update" if is_dry_run else "updated", "to update" if is_dry_run else "updated"),
+        ("drift", "drifted", "drifted"),
         ("remove", "to remove" if is_dry_run else "removed", "to remove" if is_dry_run else "removed"),
         ("unknownCollision", "collision", "collisions"),
         ("blocked", "blocked", "blocked"),
@@ -332,6 +335,7 @@ def _format_sync_global_instructions_human(trace: dict, is_dry_run: bool) -> str
         "skip": "·",
         "install": "+",
         "update": "~",
+        "drift": "≠",
         "remove": "-",
         "unknown-collision": "!",
         "blocked": "✗",
@@ -344,7 +348,8 @@ def _format_sync_global_instructions_human(trace: dict, is_dry_run: bool) -> str
     for action in trace.get("actions", []):
         action_name = action.get("action", "")
         icon = icon_by_action.get(action_name, "?")
-        lines.append(f"  {icon}  {action_name:<10}{action.get('targetFile', '')}")
+        suffix = "  (target was directly edited)" if action_name == "drift" else ""
+        lines.append(f"  {icon}  {action_name:<10}{action.get('targetFile', '')}{suffix}")
 
     summary = trace.get("summary", {})
     summary_parts = []
@@ -352,6 +357,7 @@ def _format_sync_global_instructions_human(trace: dict, is_dry_run: bool) -> str
         ("skip", "skipped", "skipped"),
         ("install", "to install" if is_dry_run else "installed", "to install" if is_dry_run else "installed"),
         ("update", "to update" if is_dry_run else "updated", "to update" if is_dry_run else "updated"),
+        ("drift", "drifted", "drifted"),
         ("unknownCollision", "collision", "collisions"),
         ("blocked", "blocked", "blocked"),
     )

@@ -160,7 +160,7 @@ def _build_harness_actions(
             })
             continue
 
-        action = "skip" if _skills_match(root, repo_skill, installed_skill) else "update"
+        action = "skip" if _skills_match(root, repo_skill, installed_skill) else _classify_skill_change(installed_skill)
         actions.append({
             "harness": harness,
             "skill": repo_skill.name,
@@ -304,7 +304,7 @@ def apply_sync_plan(
                 })
                 continue
 
-            if action_type == "update":
+            if action_type in {"update", "drift"}:
                 repo_skill = repo_skills[name]
                 backup_dir = _backup_directory(target_dir, harness_backup_base)
                 shutil.rmtree(target_dir)
@@ -368,6 +368,7 @@ def _summarize_actions(
         "unknownInstalled": unknown_installed_total,
         "install": 0,
         "update": 0,
+        "drift": 0,
         "remove": 0,
         "skip": 0,
         "unknownCollision": 0,
@@ -383,6 +384,8 @@ def _summarize_actions(
             summary["install"] += 1
         elif action["action"] == "update":
             summary["update"] += 1
+        elif action["action"] == "drift":
+            summary["drift"] += 1
         elif action["action"] == "remove":
             summary["remove"] += 1
         elif action["action"] == "skip":
@@ -443,11 +446,25 @@ def _copy_skill_directory(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination, dirs_exist_ok=False)
 
 
+def _classify_skill_change(installed_skill: "InstalledSkill") -> str:
+    """Return 'drift' if the installed skill was directly edited, 'update' if the source changed."""
+    stored_digest = installed_skill.marker.get("sourceDigest") if isinstance(installed_skill.marker, dict) else None
+    if stored_digest is None:
+        return "update"
+    current_target_digest = _directory_digest(
+        installed_skill.directory,
+        exclude_relative_paths={Path(AI_STACK_MARKER), ROUTER_INDEX_RELATIVE_PATH},
+    )
+    return "drift" if current_target_digest != stored_digest else "update"
+
+
 def _write_marker(root: Path, repo_skill: RepoSkill, target_dir: Path, synced_at: str) -> None:
+    source_digest = _directory_digest(repo_skill.directory, exclude_relative_paths=None)
     marker = {
         "managedBy": "ai-stack",
         "sourcePath": str(repo_skill.directory.relative_to(root)),
         "syncedAt": synced_at,
+        "sourceDigest": source_digest,
     }
     (target_dir / AI_STACK_MARKER).write_text(json.dumps(marker, indent=2, sort_keys=True) + "\n")
     if repo_skill.name == ROUTER_SKILL_NAME:

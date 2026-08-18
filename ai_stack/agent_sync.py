@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from dataclasses import dataclass
@@ -165,7 +166,7 @@ def build_agent_sync_plan(
             )
             continue
 
-        action = "skip" if existing_text == sources["renderedText"] else "update"
+        action = "skip" if existing_text == sources["renderedText"] else _classify_instruction_change(existing_text, marker)
         actions.append(
             {
                 "harness": harness_id,
@@ -238,7 +239,7 @@ def apply_agent_sync_plan(
             )
             continue
 
-        if action_type == "update":
+        if action_type in {"update", "drift"}:
             backup_dir = backup_agent_target(target, backup_run_root)
             target.target_file.write_text(rendered_text)
             write_agent_sync_marker(root, target, applied_at)
@@ -291,6 +292,11 @@ def backup_agent_target(target: HarnessTarget, backup_run_root: Path) -> Path:
 
 
 def write_agent_sync_marker(root: Path, target: HarnessTarget, applied_at: str) -> None:
+    content_hash = (
+        hashlib.sha256(target.target_file.read_bytes()).hexdigest()
+        if target.target_file.exists()
+        else None
+    )
     target.marker_file.write_text(
         json.dumps(
             {
@@ -301,6 +307,7 @@ def write_agent_sync_marker(root: Path, target: HarnessTarget, applied_at: str) 
                 "localSourcePath": str(LOCAL_SOURCE_PATH),
                 "targetFile": target.target_file.name,
                 "syncedAt": applied_at,
+                "contentHash": content_hash,
             },
             indent=2,
             sort_keys=True,
@@ -308,11 +315,23 @@ def write_agent_sync_marker(root: Path, target: HarnessTarget, applied_at: str) 
     )
 
 
+def _classify_instruction_change(
+    existing_text: Optional[str], marker: Optional[Dict[str, Any]]
+) -> str:
+    """Return 'drift' if the installed file was directly edited, 'update' if the source changed."""
+    stored_hash = marker.get("contentHash") if isinstance(marker, dict) else None
+    if stored_hash is None or existing_text is None:
+        return "update"
+    current_hash = hashlib.sha256(existing_text.encode()).hexdigest()
+    return "drift" if current_hash != stored_hash else "update"
+
+
 def summarize_agent_sync_actions(actions: List[Dict[str, Any]]) -> Dict[str, int]:
     summary = {
         "selectedHarnesses": len(actions),
         "install": 0,
         "update": 0,
+        "drift": 0,
         "skip": 0,
         "blocked": 0,
         "unknownCollision": 0,
@@ -322,6 +341,8 @@ def summarize_agent_sync_actions(actions: List[Dict[str, Any]]) -> Dict[str, int
             summary["install"] += 1
         elif action["action"] == "update":
             summary["update"] += 1
+        elif action["action"] == "drift":
+            summary["drift"] += 1
         elif action["action"] == "skip":
             summary["skip"] += 1
         elif action["action"] == "blocked":
