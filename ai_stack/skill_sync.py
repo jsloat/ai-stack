@@ -10,12 +10,13 @@ from typing import Any, Dict, List, Optional
 
 from ai_stack.skill_index import INDEX_PATH, load_skill_index
 
+SUPPORTED_HARNESSES = ("codex", "copilot")
 SKILL_SOURCE_ROOTS = (
     ("local", Path("skills/local")),
     ("shared", Path("skills/shared")),
 )
 AI_STACK_MARKER = ".ai-stack-skill.json"
-BACKUP_ROOT = Path.home() / ".codex" / "skills-sync-backups"
+BACKUP_ROOT = Path.home() / ".ai-stack" / "skills-sync-backups"
 ROUTER_SKILL_NAME = "skill-index-router"
 ROUTER_INDEX_RELATIVE_PATH = Path("references/skill-index.yaml")
 
@@ -54,8 +55,16 @@ class InstalledSkill:
         }
 
 
-def codex_user_skills_dir() -> Path:
-    return Path.home() / ".codex" / "skills"
+def user_skills_dir(harness: str) -> Path:
+    if harness == "codex":
+        return Path.home() / ".codex" / "skills"
+    if harness == "copilot":
+        return Path.home() / ".copilot" / "skills"
+    raise ValueError(f"Unsupported harness: {harness}")
+
+
+def backup_root_for_harness(harness: str) -> Path:
+    return BACKUP_ROOT / harness
 
 
 def discover_repo_skills(root: Path) -> List[RepoSkill]:
@@ -86,8 +95,8 @@ def discover_repo_skills(root: Path) -> List[RepoSkill]:
     return skills
 
 
-def discover_installed_codex_skills(skills_dir: Optional[Path] = None) -> List[InstalledSkill]:
-    skills_root = skills_dir or codex_user_skills_dir()
+def discover_installed_skills(harness: str, skills_dir: Optional[Path] = None) -> List[InstalledSkill]:
+    skills_root = skills_dir or user_skills_dir(harness)
     if not skills_root.exists():
         return []
 
@@ -95,7 +104,7 @@ def discover_installed_codex_skills(skills_dir: Optional[Path] = None) -> List[I
     for child in sorted(skills_root.iterdir()):
         if not child.is_dir():
             continue
-        if child.name.startswith("."):
+        if child.name.startswith(".") or child.name.startswith("_"):
             continue
         marker_path = child / AI_STACK_MARKER
         marker = None
@@ -117,10 +126,14 @@ def discover_installed_codex_skills(skills_dir: Optional[Path] = None) -> List[I
     return installed
 
 
-def build_sync_plan(root: Path, installed_skills_dir: Optional[Path] = None) -> Dict[str, Any]:
-    repo_skills = discover_repo_skills(root)
-    installed_root = installed_skills_dir or codex_user_skills_dir()
-    installed = discover_installed_codex_skills(installed_root)
+def _build_harness_actions(
+    root: Path,
+    harness: str,
+    repo_skills: List[RepoSkill],
+    installed_skills_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
+    installed_root = installed_skills_dir or user_skills_dir(harness)
+    installed = discover_installed_skills(harness, skills_dir=installed_skills_dir)
     installed_by_name = {skill.name: skill for skill in installed}
     repo_skill_names = {skill.name for skill in repo_skills}
     actions: List[Dict[str, Any]] = []
@@ -128,62 +141,85 @@ def build_sync_plan(root: Path, installed_skills_dir: Optional[Path] = None) -> 
     for repo_skill in repo_skills:
         installed_skill = installed_by_name.get(repo_skill.name)
         if installed_skill is None:
-            actions.append(
-                {
-                    "skill": repo_skill.name,
-                    "action": "install",
-                    "sourceDirectory": str(repo_skill.directory.relative_to(root)),
-                    "targetDirectory": str(installed_root / repo_skill.name),
-                }
-            )
+            actions.append({
+                "harness": harness,
+                "skill": repo_skill.name,
+                "action": "install",
+                "sourceDirectory": str(repo_skill.directory.relative_to(root)),
+                "targetDirectory": str(installed_root / repo_skill.name),
+            })
             continue
 
         if not installed_skill.managed:
-            actions.append(
-                {
-                    "skill": repo_skill.name,
-                    "action": "unknown-collision",
-                    "sourceDirectory": str(repo_skill.directory.relative_to(root)),
-                    "targetDirectory": str(installed_skill.directory),
-                }
-            )
+            actions.append({
+                "harness": harness,
+                "skill": repo_skill.name,
+                "action": "unknown-collision",
+                "sourceDirectory": str(repo_skill.directory.relative_to(root)),
+                "targetDirectory": str(installed_skill.directory),
+            })
             continue
 
         action = "skip" if _skills_match(root, repo_skill, installed_skill) else "update"
-        actions.append(
-            {
-                "skill": repo_skill.name,
-                "action": action,
-                "sourceDirectory": str(repo_skill.directory.relative_to(root)),
-                "targetDirectory": str(installed_skill.directory),
-            }
-        )
+        actions.append({
+            "harness": harness,
+            "skill": repo_skill.name,
+            "action": action,
+            "sourceDirectory": str(repo_skill.directory.relative_to(root)),
+            "targetDirectory": str(installed_skill.directory),
+        })
 
     for installed_skill in installed:
         if installed_skill.managed and installed_skill.name not in repo_skill_names:
-            actions.append(
-                {
-                    "skill": installed_skill.name,
-                    "action": "remove",
-                    "sourceDirectory": None,
-                    "targetDirectory": str(installed_skill.directory),
-                }
-            )
+            actions.append({
+                "harness": harness,
+                "skill": installed_skill.name,
+                "action": "remove",
+                "sourceDirectory": None,
+                "targetDirectory": str(installed_skill.directory),
+            })
 
     unknown_installed = [
         skill.to_dict()
         for skill in installed
         if not skill.managed and skill.name not in repo_skill_names
     ]
+    managed_installed = [skill.to_dict() for skill in installed if skill.managed]
 
-    managed_installed = [
-        skill.to_dict()
-        for skill in installed
-        if skill.managed
-    ]
+    return {
+        "harness": harness,
+        "root": str(installed_root.resolve()),
+        "managed": managed_installed,
+        "unknown": unknown_installed,
+        "actions": actions,
+    }
+
+
+def build_sync_plan(
+    root: Path,
+    harness: str = "all",
+    installed_skills_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
+    selected = list(SUPPORTED_HARNESSES) if harness == "all" else [harness]
+    repo_skills = discover_repo_skills(root)
+    all_actions: List[Dict[str, Any]] = []
+    targets: List[Dict[str, Any]] = []
+
+    for h in selected:
+        # installed_skills_dir override only applies when targeting a single harness
+        override = installed_skills_dir if len(selected) == 1 else None
+        result = _build_harness_actions(root, h, repo_skills, installed_skills_dir=override)
+        all_actions.extend(result["actions"])
+        targets.append({
+            "harness": result["harness"],
+            "root": result["root"],
+            "managed": result["managed"],
+            "unknown": result["unknown"],
+        })
 
     return {
         "mode": "dry-run",
+        "harness": harness,
         "source": {
             "roots": [
                 {
@@ -195,125 +231,140 @@ def build_sync_plan(root: Path, installed_skills_dir: Optional[Path] = None) -> 
             ],
             "skills": [skill.to_dict(root) for skill in repo_skills],
         },
-        "installed": {
-            "root": str(installed_root.resolve()),
-            "managed": managed_installed,
-            "unknown": unknown_installed,
-        },
-        "actions": actions,
-        "summary": _summarize_actions(actions, unknown_installed),
+        "targets": targets,
+        "actions": all_actions,
+        "summary": _summarize_actions(all_actions, targets),
     }
 
 
-def apply_sync_plan(root: Path, installed_skills_dir: Optional[Path] = None, backup_root: Optional[Path] = None) -> Dict[str, Any]:
-    plan = build_sync_plan(root, installed_skills_dir=installed_skills_dir)
-    installed_root = Path(plan["installed"]["root"])
-    backup_base = backup_root or BACKUP_ROOT
+def apply_sync_plan(
+    root: Path,
+    harness: str = "all",
+    installed_skills_dir: Optional[Path] = None,
+    backup_root: Optional[Path] = None,
+) -> Dict[str, Any]:
+    plan = build_sync_plan(root, harness=harness, installed_skills_dir=installed_skills_dir)
     applied_at = _utc_now()
-    backup_run_root = backup_base / applied_at
+    repo_skills = {skill.name: skill for skill in discover_repo_skills(root)}
     results: List[Dict[str, Any]] = []
 
-    repo_skills = {skill.name: skill for skill in discover_repo_skills(root)}
-    installed_root.mkdir(parents=True, exist_ok=True)
+    # Group actions by harness so we can use the right dirs/backup paths
+    selected = list(SUPPORTED_HARNESSES) if harness == "all" else [harness]
+    for h in selected:
+        installed_root_path = (
+            installed_skills_dir.resolve()
+            if installed_skills_dir is not None and len(selected) == 1
+            else user_skills_dir(h)
+        )
+        installed_root_path.mkdir(parents=True, exist_ok=True)
+        harness_backup_base = (backup_root or backup_root_for_harness(h)) / applied_at
 
-    for action in plan["actions"]:
-        name = action["skill"]
-        target_dir = Path(action["targetDirectory"])
-        action_type = action["action"]
+        for action in plan["actions"]:
+            if action["harness"] != h:
+                continue
+            name = action["skill"]
+            target_dir = Path(action["targetDirectory"])
+            action_type = action["action"]
 
-        if action_type == "unknown-collision":
-            results.append(
-                {
+            if action_type == "unknown-collision":
+                results.append({
+                    "harness": h,
                     "skill": name,
                     "action": action_type,
                     "status": "blocked",
                     "targetDirectory": str(target_dir),
-                }
-            )
-            continue
+                    "backupDirectory": None,
+                })
+                continue
 
-        if action_type == "install":
-            repo_skill = repo_skills[name]
-            _copy_skill_directory(repo_skill.directory, target_dir)
-            _write_marker(root, repo_skill, target_dir, applied_at)
-            results.append(
-                {
+            if action_type == "install":
+                repo_skill = repo_skills[name]
+                _copy_skill_directory(repo_skill.directory, target_dir)
+                _write_marker(root, repo_skill, target_dir, applied_at)
+                results.append({
+                    "harness": h,
                     "skill": name,
                     "action": action_type,
                     "status": "applied",
                     "targetDirectory": str(target_dir),
                     "backupDirectory": None,
-                }
-            )
-            continue
+                })
+                continue
 
-        if action_type == "update":
-            repo_skill = repo_skills[name]
-            backup_dir = _backup_directory(target_dir, backup_run_root)
-            shutil.rmtree(target_dir)
-            _copy_skill_directory(repo_skill.directory, target_dir)
-            _write_marker(root, repo_skill, target_dir, applied_at)
-            results.append(
-                {
+            if action_type == "update":
+                repo_skill = repo_skills[name]
+                backup_dir = _backup_directory(target_dir, harness_backup_base)
+                shutil.rmtree(target_dir)
+                _copy_skill_directory(repo_skill.directory, target_dir)
+                _write_marker(root, repo_skill, target_dir, applied_at)
+                results.append({
+                    "harness": h,
                     "skill": name,
                     "action": action_type,
                     "status": "applied",
                     "targetDirectory": str(target_dir),
                     "backupDirectory": str(backup_dir),
-                }
-            )
-            continue
+                })
+                continue
 
-        if action_type == "remove":
-            backup_dir = _backup_directory(target_dir, backup_run_root)
-            shutil.rmtree(target_dir)
-            results.append(
-                {
+            if action_type == "remove":
+                backup_dir = _backup_directory(target_dir, harness_backup_base)
+                shutil.rmtree(target_dir)
+                results.append({
+                    "harness": h,
                     "skill": name,
                     "action": action_type,
                     "status": "applied",
                     "targetDirectory": str(target_dir),
                     "backupDirectory": str(backup_dir),
-                }
-            )
-            continue
+                })
+                continue
 
-        if action_type == "skip":
-            results.append(
-                {
+            if action_type == "skip":
+                results.append({
+                    "harness": h,
                     "skill": name,
                     "action": action_type,
                     "status": "unchanged",
                     "targetDirectory": str(target_dir),
                     "backupDirectory": None,
-                }
-            )
-            continue
+                })
+                continue
 
-        raise ValueError(f"Unsupported sync action: {action_type}")
+            raise ValueError(f"Unsupported sync action: {action_type}")
 
     return {
         "mode": "apply",
+        "harness": harness,
         "appliedAt": applied_at,
         "source": plan["source"],
-        "installed": plan["installed"],
+        "targets": plan["targets"],
         "actions": plan["actions"],
         "results": results,
         "summary": _summarize_results(results, plan["summary"]),
-        "backupRoot": str(backup_run_root) if any(result["backupDirectory"] for result in results) else None,
+        "backupRoot": str(BACKUP_ROOT / applied_at) if any(r["backupDirectory"] for r in results) else None,
     }
 
 
-def _summarize_actions(actions: List[Dict[str, Any]], unknown_installed: List[Dict[str, Any]]) -> Dict[str, int]:
+def _summarize_actions(
+    actions: List[Dict[str, Any]], targets: List[Dict[str, Any]]
+) -> Dict[str, int]:
+    unknown_installed_total = sum(len(t["unknown"]) for t in targets)
     summary: Dict[str, int] = {
-        "sourceSkills": sum(1 for action in actions if action["sourceDirectory"] is not None),
-        "unknownInstalled": len(unknown_installed),
+        "sourceSkills": sum(1 for a in actions if a["sourceDirectory"] is not None and a["harness"] == (targets[0]["harness"] if len(targets) == 1 else actions[0]["harness"] if actions else "")),
+        "unknownInstalled": unknown_installed_total,
         "install": 0,
         "update": 0,
         "remove": 0,
         "skip": 0,
         "unknownCollision": 0,
     }
+    # sourceSkills = unique repo skills (same regardless of harness count)
+    seen_skills: set = set()
+    for a in actions:
+        if a["sourceDirectory"] is not None:
+            seen_skills.add(a["skill"])
+    summary["sourceSkills"] = len(seen_skills)
     for action in actions:
         if action["action"] == "install":
             summary["install"] += 1
@@ -330,13 +381,11 @@ def _summarize_actions(actions: List[Dict[str, Any]], unknown_installed: List[Di
 
 def _summarize_results(results: List[Dict[str, Any]], plan_summary: Dict[str, int]) -> Dict[str, int]:
     summary = dict(plan_summary)
-    summary.update(
-        {
-            "applied": sum(1 for result in results if result["status"] == "applied"),
-            "blocked": sum(1 for result in results if result["status"] == "blocked"),
-            "unchanged": sum(1 for result in results if result["status"] == "unchanged"),
-        }
-    )
+    summary.update({
+        "applied": sum(1 for r in results if r["status"] == "applied"),
+        "blocked": sum(1 for r in results if r["status"] == "blocked"),
+        "unchanged": sum(1 for r in results if r["status"] == "unchanged"),
+    })
     return summary
 
 
@@ -409,3 +458,19 @@ def _backup_directory(source_dir: Path, backup_run_root: Path) -> Path:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+# ---------------------------------------------------------------------------
+# Backward-compat shims: old callers used codex_user_skills_dir() and
+# discover_installed_codex_skills(). Keep them pointing at the new logic.
+# ---------------------------------------------------------------------------
+
+def codex_user_skills_dir() -> Path:
+    return user_skills_dir("codex")
+
+
+def discover_installed_codex_skills(skills_dir: Optional[Path] = None) -> List[InstalledSkill]:
+    return discover_installed_skills("codex", skills_dir=skills_dir)
+
+
+

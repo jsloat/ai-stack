@@ -25,11 +25,10 @@ The repo is designed to stay harness-agnostic, but the first supported machine-g
 - Codex: `$HOME/.codex/AGENTS.md`
 - Copilot CLI: `$HOME/.copilot/copilot-instructions.md`
 
-The first supported native skill sync target is:
+The first supported native skill sync targets are:
 
 - Codex: `$HOME/.codex/skills/`
-
-Copilot CLI skill sync (`$HOME/.copilot/skills/`) is the next planned target. See `docs/features/20260818-copilot-skill-sync.md`.
+- Copilot CLI: `$HOME/.copilot/skills/`
 
 ## Prerequisites
 
@@ -99,7 +98,7 @@ python3 bin/ai-stack sync-skills --dry-run
 python3 bin/ai-stack sync-skills --apply
 ```
 
-Currently targets Codex (`~/.codex/skills/`). Copilot support is planned — see `docs/features/20260818-copilot-skill-sync.md`.
+Currently targets both Codex (`~/.codex/skills/`) and Copilot CLI (`~/.copilot/skills/`). Target a specific harness with `--harness codex` or `--harness copilot`.
 
 **If you see `unknown-collision` for a skill**: an existing unmanaged skill with the same name is in the target directory. The sync tool will not overwrite it. Either rename the existing skill directory to adopt it into the repo, or remove it and re-run.
 
@@ -165,7 +164,7 @@ python3 bin/ai-stack sync-skills --dry-run
 python3 bin/ai-stack sync-skills --apply
 ```
 
-Skill sync is currently implemented for Codex's native skill directory. Copilot CLI support is planned — see `docs/features/20260818-copilot-skill-sync.md`.
+Skill sync is currently implemented for Codex (`$HOME/.codex/skills/`) and Copilot CLI (`$HOME/.copilot/skills/`).
 
 ## Skill Index
 

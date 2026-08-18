@@ -6,10 +6,9 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ai_stack.adapters import run_adapter_dry_mode, run_adapter_live
-from ai_stack.agent_sync import apply_agent_sync_plan, build_agent_sync_plan, SUPPORTED_HARNESSES
+from ai_stack.agent_sync import apply_agent_sync_plan, build_agent_sync_plan, SUPPORTED_HARNESSES as SUPPORTED_AGENT_HARNESSES
 from ai_stack.skill_index import load_skill_index, parse_simple_yaml
-from ai_stack.skill_sync import apply_sync_plan, build_sync_plan
+from ai_stack.skill_sync import apply_sync_plan, build_sync_plan, SUPPORTED_HARNESSES as SUPPORTED_SKILL_HARNESSES
 from ai_stack.telemetry import finalize_telemetry, start_command_timer, telemetry_enabled_from_config
 
 
@@ -266,6 +265,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     sync_skills_parser = subparsers.add_parser("sync-skills")
     sync_skills_parser.add_argument("--dry-run", action="store_true")
     sync_skills_parser.add_argument("--apply", action="store_true")
+    sync_skills_parser.add_argument("--harness", choices=(*SUPPORTED_SKILL_HARNESSES, "all"), default="all")
     sync_skills_parser.add_argument("--root", type=Path)
     sync_skills_parser.add_argument("--installed-skills-dir", type=Path, help=argparse.SUPPRESS)
     sync_skills_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
@@ -273,7 +273,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     sync_agents_parser.add_argument("--dry-run", action="store_true")
     sync_agents_parser.add_argument("--apply", action="store_true")
     sync_agents_parser.add_argument("--root", type=Path)
-    sync_agents_parser.add_argument("--harness", choices=(*SUPPORTED_HARNESSES, "all"), default="all")
+    sync_agents_parser.add_argument("--harness", choices=(*SUPPORTED_AGENT_HARNESSES, "all"), default="all")
     sync_agents_parser.add_argument("--codex-target-file", type=Path, help=argparse.SUPPRESS)
     sync_agents_parser.add_argument("--copilot-target-file", type=Path, help=argparse.SUPPRESS)
     sync_agents_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
@@ -375,9 +375,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         installed_skills_dir = args.installed_skills_dir.resolve() if args.installed_skills_dir is not None else None
         backup_root = args.backup_root.resolve() if args.backup_root is not None else None
         trace = (
-            build_sync_plan(root, installed_skills_dir=installed_skills_dir)
+            build_sync_plan(root, harness=args.harness, installed_skills_dir=installed_skills_dir)
             if args.dry_run
-            else apply_sync_plan(root, installed_skills_dir=installed_skills_dir, backup_root=backup_root)
+            else apply_sync_plan(root, harness=args.harness, installed_skills_dir=installed_skills_dir, backup_root=backup_root)
         )
         trace = _with_telemetry(
             trace,
@@ -387,6 +387,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             route={
                 "root": str(root),
                 "syncMode": "dry-run" if args.dry_run else "apply",
+                "targetHarness": args.harness,
             },
             config=config,
         )
