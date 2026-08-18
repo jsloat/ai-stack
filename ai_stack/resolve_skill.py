@@ -266,7 +266,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     sync_skills_parser = subparsers.add_parser("sync-skills")
     sync_skills_parser.add_argument("--dry-run", action="store_true")
     sync_skills_parser.add_argument("--apply", action="store_true")
-    sync_skills_parser.add_argument("--harness", choices=(*SUPPORTED_SKILL_HARNESSES, "all"), default="all")
+    sync_skills_parser.add_argument("--harness", choices=(*SUPPORTED_SKILL_HARNESSES, "all"), default=None)
     sync_skills_parser.add_argument("--root", type=Path)
     sync_skills_parser.add_argument("--installed-skills-dir", type=Path, help=argparse.SUPPRESS)
     sync_skills_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
@@ -373,12 +373,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("sync-skills requires --dry-run or --apply")
         root = args.root.resolve() if args.root is not None else infer_repo_root()
         config = load_local_config(root)
+        effective_harness = args.harness if args.harness is not None else config["effective"]["defaultHarness"]
         installed_skills_dir = args.installed_skills_dir.resolve() if args.installed_skills_dir is not None else None
         backup_root = args.backup_root.resolve() if args.backup_root is not None else None
         trace = (
-            build_sync_plan(root, harness=args.harness, installed_skills_dir=installed_skills_dir)
+            build_sync_plan(root, harness=effective_harness, installed_skills_dir=installed_skills_dir)
             if args.dry_run
-            else apply_sync_plan(root, harness=args.harness, installed_skills_dir=installed_skills_dir, backup_root=backup_root)
+            else apply_sync_plan(root, harness=effective_harness, installed_skills_dir=installed_skills_dir, backup_root=backup_root)
         )
         trace = _with_telemetry(
             trace,
@@ -388,7 +389,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             route={
                 "root": str(root),
                 "syncMode": "dry-run" if args.dry_run else "apply",
-                "targetHarness": args.harness,
+                "targetHarness": effective_harness,
             },
             config=config,
         )

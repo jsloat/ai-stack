@@ -70,7 +70,8 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         extra_env=None,
         root: Optional[Path] = None,
         apply: bool = False,
-        harness: str = "codex",
+        *,
+        harness: str,
         installed_skills_dir: Optional[Path] = None,
         backup_root: Optional[Path] = None,
     ):
@@ -683,6 +684,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 installed_skills_dir=home / ".codex" / "skills",
             )
 
@@ -721,6 +723,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 installed_skills_dir=home / ".codex" / "skills",
             )
 
@@ -757,6 +760,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 installed_skills_dir=home / ".codex" / "skills",
             )
 
@@ -788,6 +792,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 installed_skills_dir=home / ".codex" / "skills",
             )
 
@@ -809,6 +814,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 apply=True,
                 installed_skills_dir=home / ".codex" / "skills",
                 backup_root=home / ".codex" / "skills-sync-backups",
@@ -847,6 +853,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 apply=True,
                 installed_skills_dir=home / ".codex" / "skills",
                 backup_root=home / ".codex" / "skills-sync-backups",
@@ -874,6 +881,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 apply=True,
                 installed_skills_dir=home / ".codex" / "skills",
                 backup_root=home / ".codex" / "skills-sync-backups",
@@ -902,6 +910,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 installed_skills_dir=home / ".codex" / "skills",
             )
 
@@ -933,6 +942,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             result = self.run_sync_cli(
                 root,
                 root=root,
+                harness="codex",
                 apply=True,
                 installed_skills_dir=home / ".codex" / "skills",
                 backup_root=home / ".codex" / "skills-sync-backups",
