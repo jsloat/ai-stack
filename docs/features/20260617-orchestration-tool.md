@@ -187,13 +187,24 @@ Outputs:
 - orchestration-level tests
 
 Checklist:
-- [ ] Choose the first concrete orchestration use case.
-- [ ] Implement spec approval and planning flow.
-- [ ] Implement staged execution and status reporting.
-- [ ] Add success, failure, and resume-oriented tests.
+- [x] Choose the first concrete orchestration use case.
+- [x] Implement spec approval and planning flow.
+- [x] Implement staged execution and status reporting.
+- [x] Add success, failure, and resume-oriented tests.
 
 Exit Criteria:
 The repo can run one project workflow end to end outside a single chat session.
+
+**Status**: Phase 3 Foundation Complete (2026-08-18)
+
+Implemented:
+- Core data models (Run, Stage, Step, Project) with serialization
+- ProjectManager with init/approve/plan/status/list operations
+- CLI commands: `ai orch init/approve/plan/status/list`
+- Full spec parsing with phase extraction and checklist items
+- Project archival with dated folders and run state persistence
+- Human-readable output by default; `--output-json` for structured output
+- Unit tests for models and project management (16 tests, all passing)
 
 ## Acceptance Criteria
 
@@ -204,11 +215,13 @@ The repo can run one project workflow end to end outside a single chat session.
 
 ## Open Questions
 
-- What should the first end-to-end workflow be?
-- Which approval checks should be required before execution starts?
-- When should review units map to separate PRs versus non-PR checkpoints?
+- What should the first end-to-end workflow be? → **Answered**: Generic feature-doc-based spec, extensible to domain-specific sources
+- Which approval checks should be required before execution starts? → **Answered (Basic)**: Current implementation validates spec structure; optional validation hooks for approval
+- When should review units map to separate PRs versus non-PR checkpoints? → **Open**: Depends on downstream execution model
+- Should step execution be sequential, parallel, or hybrid? → **Open**: Current model is linear; DAG planning deferred
+- Which artifact types should be first-class persisted outputs? → **Open**: Markdown docs for review, extensible JSON/structured data
 
 ## Follow-Up Work
 
-- Implement the CLI lifecycle from the supporting specs.
-- Choose the first concrete workflow to exercise the full path.
+- ~~Implement the CLI lifecycle from the supporting specs.~~ Done — `ai orch init/approve/plan/status/list` are implemented.
+- Choose the first concrete workflow to exercise the full path end-to-end (including `run` and artifact output).

@@ -78,7 +78,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         env = os.environ.copy()
         if extra_env is not None:
             env.update(extra_env)
-        cmd = [sys.executable, str(CLI_PATH), "sync-skills", "--apply" if apply else "--dry-run", "--harness", harness]
+        cmd = [sys.executable, str(CLI_PATH), "sync-skills", "--apply" if apply else "--dry-run", "--json", "--harness", harness]
         if root is not None:
             cmd.extend(["--root", str(root)])
         if installed_skills_dir is not None:
@@ -114,6 +114,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             str(CLI_PATH),
             "sync-global-instructions",
             "--apply" if apply else "--dry-run",
+            "--json",
             "--harness",
             harness,
         ]
@@ -1157,7 +1158,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             # Run with harness=all using CLI directly (no installed_skills_dir override)
             result = subprocess.run(
                 [
-                    sys.executable, str(CLI_PATH), "sync-skills", "--dry-run",
+                    sys.executable, str(CLI_PATH), "sync-skills", "--dry-run", "--json",
                     "--harness", "all",
                     "--root", str(root),
                 ],
@@ -1191,7 +1192,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
 
             result = subprocess.run(
                 [
-                    sys.executable, str(CLI_PATH), "sync-skills", "--apply",
+                    sys.executable, str(CLI_PATH), "sync-skills", "--apply", "--json",
                     "--harness", "all",
                     "--root", str(root),
                 ],

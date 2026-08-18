@@ -18,6 +18,21 @@ When working in this repository:
 - update docs when you change architecture, conventions, or intended repo structure
 - keep committed content shareable; do not introduce private machine details, absolute local paths, or secrets
 
+## CLI Conventions
+
+The `bin/ai-stack` CLI is exposed to users as `ai` (via a shell alias). All user-facing text must use `ai` as the program name — never `ai-stack`.
+
+The CLI uses a custom help system instead of argparse's default formatter. When adding or modifying commands, follow these rules:
+
+- The top-level `_HELP` string in `resolve_skill.py` is the canonical help surface. Update it whenever commands are added, renamed, or removed.
+- The top-level parser uses `add_help=False` with a manual `-h/--help` handler. **Do not use `required=True` on subparsers** — missing command is handled manually to show clean help.
+- The top-level parser subclasses `argparse.ArgumentParser` as `_CleanParser`, overriding `error()` to print the clean `_HELP` string instead of argparse's raw `usage:` line. Any new parser that can produce user-facing errors must do the same — never allow argparse's default `usage: ai [-h] {cmd1,cmd2,...}` format to reach the terminal.
+- Subcommand groups (like `orch`) that have their own help text must also subclass `ArgumentParser` and override `error()` in the same way.
+- Each subcommand group has its own `_*_HELP` string. Update it whenever its subcommands change.
+- `prog=` must be set explicitly on every parser and subparser (e.g. `prog="ai orch"`) so error messages show the right invocation.
+- Next-step prompt strings in command output must use `ai <cmd>` form, not `ai-stack`.
+- `sync-skills` and `sync-global-instructions` default to dry-run when no mode flag is given. Human-readable output is the default; pass `--json` for raw JSON.
+
 If a task is primarily documentation work, prefer changing the relevant feature doc or README instead of burying intent in agent-only instructions.
 
 Instruction placement:

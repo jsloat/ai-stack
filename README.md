@@ -48,6 +48,20 @@ curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
 
 ## Quick Start
 
+### 0. Add the shell alias (recommended)
+
+Add this to your shell RC file (`~/.zshrc`, `~/.bashrc`, etc.), replacing the path with your checkout location:
+
+```bash
+alias ai='python3 ~/Dev/ai-stack/bin/ai-stack'
+```
+
+Then reload your shell (`source ~/.zshrc`) and verify:
+
+```bash
+ai --help
+```
+
 ### 1. Create a local config
 
 ```bash
@@ -80,8 +94,13 @@ The files in `global-agent-instructions/` are the source of truth for machine-gl
 - Copilot CLI: `~/.copilot/copilot-instructions.md`
 
 ```bash
-python3 bin/ai-stack sync-global-instructions --dry-run
-python3 bin/ai-stack sync-global-instructions --apply
+# Dry run (default):
+ai sync-global-instructions
+# Apply:
+ai sync-global-instructions --apply
+# Raw JSON output:
+ai sync-global-instructions --json
+ai sync-global-instructions --apply --json
 ```
 
 **If you see an `unknown-collision`** for a harness target: that file already exists and was not written by `ai-stack`. The sync tool will not overwrite it automatically. Options:
@@ -94,8 +113,13 @@ python3 bin/ai-stack sync-global-instructions --apply
 Skills in `skills/shared/` and `skills/local/` sync to the harness native skill directory.
 
 ```bash
-python3 bin/ai-stack sync-skills --dry-run
-python3 bin/ai-stack sync-skills --apply
+# Dry run (default):
+ai sync-skills
+# Apply:
+ai sync-skills --apply
+# Raw JSON output:
+ai sync-skills --json
+ai sync-skills --apply --json
 ```
 
 Currently targets both Codex (`~/.codex/skills/`) and Copilot CLI (`~/.copilot/skills/`). Target a specific harness with `--harness codex` or `--harness copilot`.
@@ -132,15 +156,21 @@ The shared baseline currently installs explicit Git safety rules, including:
 Use:
 
 ```bash
-python3 bin/ai-stack sync-global-instructions --dry-run
-python3 bin/ai-stack sync-global-instructions --apply
+# Dry run (default):
+ai sync-global-instructions
+# Apply:
+ai sync-global-instructions --apply
+# Raw JSON output:
+ai sync-global-instructions --json
+ai sync-global-instructions --apply --json
 ```
 
 Optional harness targeting:
 
 ```bash
-python3 bin/ai-stack sync-global-instructions --dry-run --harness codex
-python3 bin/ai-stack sync-global-instructions --apply --harness copilot
+ai sync-global-instructions --harness codex
+ai sync-global-instructions --apply --harness copilot
+ai sync-global-instructions --harness codex --json
 ```
 
 The sync is conservative:
@@ -160,8 +190,13 @@ Repo skills live under `skills/`.
 Use:
 
 ```bash
-python3 bin/ai-stack sync-skills --dry-run
-python3 bin/ai-stack sync-skills --apply
+# Dry run (default):
+ai sync-skills
+# Apply:
+ai sync-skills --apply
+# Raw JSON output:
+ai sync-skills --json
+ai sync-skills --apply --json
 ```
 
 Skill sync is currently implemented for Codex (`$HOME/.codex/skills/`) and Copilot CLI (`$HOME/.copilot/skills/`).

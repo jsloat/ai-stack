@@ -175,6 +175,7 @@ An implementer can wire the first commands into runtime code and tests coherentl
 
 ## Follow-Up Work
 
-- Implement the first `orchestrate` command group.
-- Add CLI tests for init/approve/plan/run/status.
-- Update README once the commands exist.
+- ~~Implement the first `orchestrate` command group.~~ Done — implemented as `ai orch` (init/approve/plan/status/list).
+- ~~Update README once the commands exist.~~ Done.
+- Add CLI tests for init/approve/plan/run/status. (Unit tests exist for models and ProjectManager; integration tests for the CLI surface are pending.)
+- `run` command is not yet implemented — staged execution is the next phase.

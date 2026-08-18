@@ -257,33 +257,184 @@ def _with_telemetry(
     return enriched
 
 
+_HELP = """\
+Usage: ai <command> [options]
+
+Commands:
+  sync-skills              Sync skills to installed harnesses
+  sync-global-instructions Sync global agent instructions to installed harnesses
+
+  orch                     Manage orchestrated projects
+    init <name>              Initialize a new project
+    approve <project>        Approve a draft for execution
+    plan <project>           Generate an execution plan
+    status [project]         Show lifecycle status
+    list                     List all projects
+
+Diagnostic:
+  resolve-skill <skill>    Inspect skill index resolution for a skill ID
+  adapter <harness>        Smoke-test a harness adapter connection
+
+Run 'ai <command> --help' for per-command options.
+"""
+
+
+def _pluralize(count: int, singular: str, plural: Optional[str] = None) -> str:
+    return singular if count == 1 else (plural or f"{singular}s")
+
+
+def _format_sync_skills_human(trace: dict, is_dry_run: bool) -> str:
+    icon_by_action = {
+        "skip": "·",
+        "install": "+",
+        "update": "~",
+        "remove": "-",
+        "unknown-collision": "!",
+        "blocked": "✗",
+    }
+    title = f"Sync skills → {trace.get('harness', '')}"
+    if is_dry_run:
+        title += "  [dry run]"
+
+    lines = [title, ""]
+    for action in trace.get("actions", []):
+        action_name = action.get("action", "")
+        icon = icon_by_action.get(action_name, "?")
+        lines.append(f"  {icon}  {action_name:<20}{action.get('skill', '')}")
+
+    summary = trace.get("summary", {})
+    summary_parts = []
+    summary_labels = (
+        ("skip", "skipped", "skipped"),
+        ("install", "to install" if is_dry_run else "installed", "to install" if is_dry_run else "installed"),
+        ("update", "to update" if is_dry_run else "updated", "to update" if is_dry_run else "updated"),
+        ("remove", "to remove" if is_dry_run else "removed", "to remove" if is_dry_run else "removed"),
+        ("unknownCollision", "collision", "collisions"),
+        ("blocked", "blocked", "blocked"),
+    )
+    for key, singular, plural in summary_labels:
+        count = int(summary.get(key, 0) or 0)
+        if count:
+            summary_parts.append(f"{count} {_pluralize(count, singular, plural)}")
+
+    if summary_parts:
+        lines.extend(["", "  ·  ".join(summary_parts)])
+        if is_dry_run:
+            lines.extend(["", "Run 'ai sync-skills --apply' to apply."])
+    else:
+        lines.append("Nothing to do.")
+
+    return "\n".join(lines)
+
+
+def _format_sync_global_instructions_human(trace: dict, is_dry_run: bool) -> str:
+    icon_by_action = {
+        "skip": "·",
+        "install": "+",
+        "update": "~",
+        "remove": "-",
+        "unknown-collision": "!",
+        "blocked": "✗",
+    }
+    title = f"Sync global instructions → {trace.get('harness', '')}"
+    if is_dry_run:
+        title += "  [dry run]"
+
+    lines = [title, ""]
+    for action in trace.get("actions", []):
+        action_name = action.get("action", "")
+        icon = icon_by_action.get(action_name, "?")
+        lines.append(f"  {icon}  {action_name:<10}{action.get('targetFile', '')}")
+
+    summary = trace.get("summary", {})
+    summary_parts = []
+    summary_labels = (
+        ("skip", "skipped", "skipped"),
+        ("install", "to install" if is_dry_run else "installed", "to install" if is_dry_run else "installed"),
+        ("update", "to update" if is_dry_run else "updated", "to update" if is_dry_run else "updated"),
+        ("unknownCollision", "collision", "collisions"),
+        ("blocked", "blocked", "blocked"),
+    )
+    for key, singular, plural in summary_labels:
+        count = int(summary.get(key, 0) or 0)
+        if count:
+            summary_parts.append(f"{count} {_pluralize(count, singular, plural)}")
+
+    if summary_parts:
+        lines.extend(["", "  ·  ".join(summary_parts)])
+        if is_dry_run:
+            lines.extend(["", "Run 'ai sync-global-instructions --apply' to apply."])
+    else:
+        lines.append("Nothing to do.")
+
+    return "\n".join(lines)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(prog="ai-stack")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    resolve_parser = subparsers.add_parser("resolve-skill")
+    # Fast path: skip heavy parser setup for help/bare invocation
+    if argv is None:
+        argv = sys.argv[1:]
+    if not argv or argv == ["-h"] or argv == ["--help"]:
+        print(_HELP.rstrip())
+        return 0
+    if argv[:1] == ["orch"] and (len(argv) == 1 or argv[1:2] in (["-h"], ["--help"])):
+        from ai_stack.orchestration.cli import _ORCHESTRATE_HELP
+        print(_ORCHESTRATE_HELP.rstrip())
+        return 0
+
+    class _CleanParser(argparse.ArgumentParser):
+        def error(self, message: str) -> None:
+            print(f"Error: {message}\n", file=sys.stderr)
+            print(_HELP.rstrip(), file=sys.stderr)
+            sys.exit(2)
+
+    parser = _CleanParser(
+        prog="ai",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=_HELP,
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="store_true", default=False)
+    subparsers = parser.add_subparsers(dest="command")
+    resolve_parser = subparsers.add_parser("resolve-skill", prog="ai resolve-skill")
     resolve_parser.add_argument("skill")
     resolve_parser.add_argument("--root", type=Path)
-    sync_skills_parser = subparsers.add_parser("sync-skills")
+    sync_skills_parser = subparsers.add_parser("sync-skills", prog="ai sync-skills")
     sync_skills_parser.add_argument("--dry-run", action="store_true")
     sync_skills_parser.add_argument("--apply", action="store_true")
+    sync_skills_parser.add_argument("--json", dest="json_output", action="store_true")
     sync_skills_parser.add_argument("--harness", choices=(*SUPPORTED_SKILL_HARNESSES, "all"), default=None)
     sync_skills_parser.add_argument("--root", type=Path)
     sync_skills_parser.add_argument("--installed-skills-dir", type=Path, help=argparse.SUPPRESS)
     sync_skills_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
-    sync_agents_parser = subparsers.add_parser("sync-global-instructions")
+    sync_agents_parser = subparsers.add_parser("sync-global-instructions", prog="ai sync-global-instructions")
     sync_agents_parser.add_argument("--dry-run", action="store_true")
     sync_agents_parser.add_argument("--apply", action="store_true")
+    sync_agents_parser.add_argument("--json", dest="json_output", action="store_true")
     sync_agents_parser.add_argument("--root", type=Path)
     sync_agents_parser.add_argument("--harness", choices=(*SUPPORTED_AGENT_HARNESSES, "all"), default=None)
     sync_agents_parser.add_argument("--codex-target-file", type=Path, help=argparse.SUPPRESS)
     sync_agents_parser.add_argument("--copilot-target-file", type=Path, help=argparse.SUPPRESS)
     sync_agents_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
-    adapter_parser = subparsers.add_parser("adapter")
+    adapter_parser = subparsers.add_parser("adapter", prog="ai adapter")
     adapter_parser.add_argument("harness")
     adapter_parser.add_argument("--prompt", required=True)
     adapter_parser.add_argument("--root", type=Path)
 
+    # Add orchestration commands (lazy import — only runs when argv starts with "orch")
+    if argv[:1] == ["orch"]:
+        from ai_stack.orchestration.cli import add_orchestration_commands
+        add_orchestration_commands(subparsers)
+
     args = parser.parse_args(argv)
+
+    if args.help or args.command is None:
+        if getattr(args, "command", None) == "orch":
+            from ai_stack.orchestration.cli import _ORCHESTRATE_HELP
+            print(_ORCHESTRATE_HELP.rstrip())
+        else:
+            print(_HELP.rstrip())
+        return 0
 
     if args.command == "resolve-skill":
         timer = start_command_timer()
@@ -369,8 +520,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         timer = start_command_timer()
         if args.dry_run and args.apply:
             parser.error("sync-skills accepts only one of --dry-run or --apply")
-        if not args.dry_run and not args.apply:
-            parser.error("sync-skills requires --dry-run or --apply")
+        is_dry_run = not args.apply
         root = args.root.resolve() if args.root is not None else infer_repo_root()
         config = load_local_config(root)
         effective_harness = args.harness if args.harness is not None else config["effective"]["defaultHarness"]
@@ -378,29 +528,31 @@ def main(argv: Optional[List[str]] = None) -> int:
         backup_root = args.backup_root.resolve() if args.backup_root is not None else None
         trace = (
             build_sync_plan(root, harness=effective_harness, installed_skills_dir=installed_skills_dir)
-            if args.dry_run
+            if is_dry_run
             else apply_sync_plan(root, harness=effective_harness, installed_skills_dir=installed_skills_dir, backup_root=backup_root)
         )
         trace = _with_telemetry(
             trace,
             timer=timer,
             command="sync-skills",
-            outcome="planned" if args.dry_run else "applied",
+            outcome="planned" if is_dry_run else "applied",
             route={
                 "root": str(root),
-                "syncMode": "dry-run" if args.dry_run else "apply",
+                "syncMode": "dry-run" if is_dry_run else "apply",
                 "targetHarness": effective_harness,
             },
             config=config,
         )
-        print(json.dumps(trace, indent=2, sort_keys=True))
+        if getattr(args, "json_output", False):
+            print(json.dumps(trace, indent=2, sort_keys=True))
+        else:
+            print(_format_sync_skills_human(trace, is_dry_run=is_dry_run))
         return 0
     if args.command == "sync-global-instructions":
         timer = start_command_timer()
         if args.dry_run and args.apply:
             parser.error("sync-global-instructions accepts only one of --dry-run or --apply")
-        if not args.dry_run and not args.apply:
-            parser.error("sync-global-instructions requires --dry-run or --apply")
+        is_dry_run = not args.apply
         root = args.root.resolve() if args.root is not None else infer_repo_root()
         config = load_local_config(root)
         effective_harness = args.harness if args.harness is not None else config["effective"]["defaultHarness"]
@@ -415,7 +567,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         backup_root = args.backup_root.resolve() if args.backup_root is not None else None
         trace = (
             build_agent_sync_plan(root, harness=effective_harness, target_overrides=target_overrides)
-            if args.dry_run
+            if is_dry_run
             else apply_agent_sync_plan(
                 root,
                 harness=effective_harness,
@@ -427,16 +579,39 @@ def main(argv: Optional[List[str]] = None) -> int:
             trace,
             timer=timer,
             command="sync-global-instructions",
-            outcome="planned" if args.dry_run else "applied",
+            outcome="planned" if is_dry_run else "applied",
             route={
                 "root": str(root),
-                "syncMode": "dry-run" if args.dry_run else "apply",
+                "syncMode": "dry-run" if is_dry_run else "apply",
                 "targetHarness": effective_harness,
             },
             config=config,
         )
-        print(json.dumps(trace, indent=2, sort_keys=True))
+        if getattr(args, "json_output", False):
+            print(json.dumps(trace, indent=2, sort_keys=True))
+        else:
+            print(_format_sync_global_instructions_human(trace, is_dry_run=is_dry_run))
         return 0
+
+    if args.command == "orch":
+        # Handle --help or bare `ai orch` before loading config
+        if getattr(args, "help", False) or not getattr(args, "orchestrate_cmd", None):
+            from ai_stack.orchestration.cli import _ORCHESTRATE_HELP
+            print(_ORCHESTRATE_HELP.rstrip())
+            return 0
+
+        root = infer_repo_root()
+        config = load_local_config(root)
+
+        if not config["valid"]:
+            print(json.dumps({
+                "error": "Invalid configuration",
+                "config": config,
+            }, indent=2), file=sys.stderr)
+            return 1
+
+        handler = args.func
+        return handler(args, config=config["effective"])
 
     parser.error("Unsupported command")
     return 2
