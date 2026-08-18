@@ -274,7 +274,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     sync_agents_parser.add_argument("--dry-run", action="store_true")
     sync_agents_parser.add_argument("--apply", action="store_true")
     sync_agents_parser.add_argument("--root", type=Path)
-    sync_agents_parser.add_argument("--harness", choices=(*SUPPORTED_AGENT_HARNESSES, "all"), default="all")
+    sync_agents_parser.add_argument("--harness", choices=(*SUPPORTED_AGENT_HARNESSES, "all"), default=None)
     sync_agents_parser.add_argument("--codex-target-file", type=Path, help=argparse.SUPPRESS)
     sync_agents_parser.add_argument("--copilot-target-file", type=Path, help=argparse.SUPPRESS)
     sync_agents_parser.add_argument("--backup-root", type=Path, help=argparse.SUPPRESS)
@@ -403,6 +403,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("sync-global-instructions requires --dry-run or --apply")
         root = args.root.resolve() if args.root is not None else infer_repo_root()
         config = load_local_config(root)
+        effective_harness = args.harness if args.harness is not None else config["effective"]["defaultHarness"]
         target_overrides = {
             harness: value.resolve()
             for harness, value in {
@@ -413,11 +414,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         }
         backup_root = args.backup_root.resolve() if args.backup_root is not None else None
         trace = (
-            build_agent_sync_plan(root, harness=args.harness, target_overrides=target_overrides)
+            build_agent_sync_plan(root, harness=effective_harness, target_overrides=target_overrides)
             if args.dry_run
             else apply_agent_sync_plan(
                 root,
-                harness=args.harness,
+                harness=effective_harness,
                 target_overrides=target_overrides,
                 backup_root=backup_root,
             )
@@ -430,7 +431,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             route={
                 "root": str(root),
                 "syncMode": "dry-run" if args.dry_run else "apply",
-                "targetHarness": args.harness,
+                "targetHarness": effective_harness,
             },
             config=config,
         )
