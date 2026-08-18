@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ai_stack.adapters import run_adapter_dry_mode, run_adapter_live
 from ai_stack.agent_sync import apply_agent_sync_plan, build_agent_sync_plan, SUPPORTED_HARNESSES as SUPPORTED_AGENT_HARNESSES
 from ai_stack.skill_index import load_skill_index, parse_simple_yaml
 from ai_stack.skill_sync import apply_sync_plan, build_sync_plan, SUPPORTED_HARNESSES as SUPPORTED_SKILL_HARNESSES

@@ -70,13 +70,14 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         extra_env=None,
         root: Optional[Path] = None,
         apply: bool = False,
+        harness: str = "codex",
         installed_skills_dir: Optional[Path] = None,
         backup_root: Optional[Path] = None,
     ):
         env = os.environ.copy()
         if extra_env is not None:
             env.update(extra_env)
-        cmd = [sys.executable, str(CLI_PATH), "sync-skills", "--apply" if apply else "--dry-run"]
+        cmd = [sys.executable, str(CLI_PATH), "sync-skills", "--apply" if apply else "--dry-run", "--harness", harness]
         if root is not None:
             cmd.extend(["--root", str(root)])
         if installed_skills_dir is not None:
@@ -540,7 +541,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
                 "codex",
                 "Reply with OK",
                 extra_env={
-                    "PATH": f"{path_dir}:/usr/bin:/bin:/opt/homebrew/bin",
+                    "PATH": f"{path_dir}:/usr/bin:/bin",
                 },
                 root=root,
             )
@@ -702,7 +703,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
             [action["action"] for action in trace["actions"]],
             ["install", "install"],
         )
-        self.assertEqual(trace["installed"]["unknown"][0]["name"], "legacy-skill")
+        self.assertEqual(trace["targets"][0]["unknown"][0]["name"], "legacy-skill")
         self.assertEqual(
             [skill["scope"] for skill in trace["source"]["skills"]],
             ["local", "local"],
@@ -764,7 +765,7 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["skip"], 1)
         self.assertEqual(trace["summary"]["update"], 0)
         self.assertEqual(trace["actions"][0]["action"], "skip")
-        self.assertEqual(trace["installed"]["managed"][0]["name"], "todoist-cli")
+        self.assertEqual(trace["targets"][0]["managed"][0]["name"], "todoist-cli")
         self.assert_telemetry(trace, command="sync-skills", outcome="planned", capture_enabled=True)
 
     def test_sync_skills_dry_run_reports_remove_for_managed_skill_missing_from_source(self):
@@ -1069,6 +1070,203 @@ class CliResolutionAndAdapterTests(unittest.TestCase):
         self.assertEqual(trace["summary"]["unknownCollision"], 0)
         self.assertEqual(trace["actions"][0]["action"], "install")
         self.assertEqual(trace["actions"][0]["harness"], "codex")
+
+    # ------------------------------------------------------------------
+    # Multi-harness / Copilot sync tests
+    # ------------------------------------------------------------------
+
+    def test_sync_skills_copilot_dry_run_reports_installs(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (root / "skills" / "shared" / "skill-creator").mkdir(parents=True)
+            (root / "skills" / "shared" / "skill-creator" / "SKILL.md").write_text("# Skill Creator\n")
+            copilot_skills = home / ".copilot" / "skills"
+            copilot_skills.mkdir(parents=True)
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                harness="copilot",
+                installed_skills_dir=copilot_skills,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["harness"], "copilot")
+        self.assertEqual(len(trace["targets"]), 1)
+        self.assertEqual(trace["targets"][0]["harness"], "copilot")
+        self.assertEqual(trace["summary"]["install"], 1)
+        self.assertEqual(trace["actions"][0]["harness"], "copilot")
+        self.assertEqual(trace["actions"][0]["skill"], "skill-creator")
+        self.assertEqual(trace["actions"][0]["action"], "install")
+        self.assert_telemetry(trace, command="sync-skills", outcome="planned", capture_enabled=True)
+        self.assertEqual(trace["telemetry"]["route"]["targetHarness"], "copilot")
+
+    def test_sync_skills_copilot_apply_installs_and_writes_marker(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (root / "skills" / "local" / "my-skill").mkdir(parents=True)
+            (root / "skills" / "local" / "my-skill" / "SKILL.md").write_text("# My Skill\n")
+            copilot_skills = home / ".copilot" / "skills"
+            copilot_skills.mkdir(parents=True)
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                harness="copilot",
+                apply=True,
+                installed_skills_dir=copilot_skills,
+                backup_root=home / ".ai-stack" / "skills-sync-backups" / "copilot",
+            )
+
+            installed_dir = copilot_skills / "my-skill"
+            skill_md_exists = (installed_dir / "SKILL.md").exists()
+            marker = json.loads((installed_dir / ".ai-stack-skill.json").read_text())
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["mode"], "apply")
+        self.assertEqual(trace["harness"], "copilot")
+        self.assertEqual(trace["summary"]["applied"], 1)
+        self.assertTrue(skill_md_exists)
+        self.assertEqual(marker["managedBy"], "ai-stack")
+        self.assertEqual(marker["sourcePath"], "skills/local/my-skill")
+        self.assert_telemetry(trace, command="sync-skills", outcome="applied", capture_enabled=True)
+
+    def test_sync_skills_all_harnesses_dry_run_shows_actions_for_each(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (root / "skills" / "shared" / "skill-creator").mkdir(parents=True)
+            (root / "skills" / "shared" / "skill-creator" / "SKILL.md").write_text("# Skill Creator\n")
+            (home / ".codex" / "skills").mkdir(parents=True)
+            (home / ".copilot" / "skills").mkdir(parents=True)
+
+            # Run with harness=all using CLI directly (no installed_skills_dir override)
+            result = subprocess.run(
+                [
+                    sys.executable, str(CLI_PATH), "sync-skills", "--dry-run",
+                    "--harness", "all",
+                    "--root", str(root),
+                ],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "HOME": str(home)},
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["harness"], "all")
+        self.assertEqual(len(trace["targets"]), 2)
+        harnesses = [t["harness"] for t in trace["targets"]]
+        self.assertIn("codex", harnesses)
+        self.assertIn("copilot", harnesses)
+        action_harnesses = [a["harness"] for a in trace["actions"]]
+        self.assertIn("codex", action_harnesses)
+        self.assertIn("copilot", action_harnesses)
+        self.assertEqual(trace["summary"]["install"], 2)  # one per harness
+
+    def test_sync_skills_apply_skips_absent_harness_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (root / "skills" / "shared" / "skill-creator").mkdir(parents=True)
+            (root / "skills" / "shared" / "skill-creator" / "SKILL.md").write_text("# Skill Creator\n")
+            # Only create .copilot, not .codex — simulate Codex not installed
+            (home / ".copilot" / "skills").mkdir(parents=True)
+
+            result = subprocess.run(
+                [
+                    sys.executable, str(CLI_PATH), "sync-skills", "--apply",
+                    "--harness", "all",
+                    "--root", str(root),
+                ],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "HOME": str(home)},
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        codex_results = [r for r in trace["results"] if r["harness"] == "codex"]
+        copilot_results = [r for r in trace["results"] if r["harness"] == "copilot"]
+        self.assertTrue(all(r["status"] == "skipped-harness-absent" for r in codex_results))
+        self.assertTrue(all(r["status"] == "applied" for r in copilot_results))
+        self.assertFalse((home / ".codex").exists())
+        self.assertEqual(trace["summary"]["skippedHarnessAbsent"], len(codex_results))
+
+    def test_sync_skills_copilot_blocks_unmanaged_collision(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (root / "skills" / "shared" / "skill-creator").mkdir(parents=True)
+            (root / "skills" / "shared" / "skill-creator" / "SKILL.md").write_text("# New Skill Creator\n")
+            copilot_skills = home / ".copilot" / "skills"
+            (copilot_skills / "skill-creator").mkdir(parents=True)
+            (copilot_skills / "skill-creator" / "SKILL.md").write_text("# Old unmanaged version\n")
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                harness="copilot",
+                installed_skills_dir=copilot_skills,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["unknownCollision"], 1)
+        self.assertEqual(trace["actions"][0]["action"], "unknown-collision")
+        self.assertEqual(trace["actions"][0]["harness"], "copilot")
+
+    def test_sync_skills_copilot_skips_up_to_date_managed_skill(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (root / "skills" / "local" / "my-skill").mkdir(parents=True)
+            (root / "skills" / "local" / "my-skill" / "SKILL.md").write_text("# My Skill\n")
+            copilot_skills = home / ".copilot" / "skills"
+            installed = copilot_skills / "my-skill"
+            installed.mkdir(parents=True)
+            (installed / "SKILL.md").write_text("# My Skill\n")
+            (installed / ".ai-stack-skill.json").write_text(
+                json.dumps({"managedBy": "ai-stack", "sourcePath": "skills/local/my-skill", "syncedAt": "20260818T000000Z"})
+            )
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                harness="copilot",
+                installed_skills_dir=copilot_skills,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["summary"]["skip"], 1)
+        self.assertEqual(trace["actions"][0]["action"], "skip")
+        self.assertEqual(trace["actions"][0]["harness"], "copilot")
+
+    def test_sync_skills_harness_flag_included_in_telemetry_route(self):
+        with tempfile.TemporaryDirectory() as tmpdir, tempfile.TemporaryDirectory() as homedir:
+            root = Path(tmpdir)
+            home = Path(homedir)
+            (home / ".copilot" / "skills").mkdir(parents=True)
+
+            result = self.run_sync_cli(
+                root,
+                root=root,
+                harness="copilot",
+                installed_skills_dir=home / ".copilot" / "skills",
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        trace = json.loads(result.stdout)
+        self.assertEqual(trace["telemetry"]["route"]["targetHarness"], "copilot")
 
 
 if __name__ == "__main__":

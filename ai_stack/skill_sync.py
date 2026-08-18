@@ -256,6 +256,19 @@ def apply_sync_plan(
             if installed_skills_dir is not None and len(selected) == 1
             else user_skills_dir(h)
         )
+        # Skip harnesses whose parent directory doesn't exist (harness not installed on this machine)
+        if not installed_root_path.parent.exists() and installed_skills_dir is None:
+            for action in plan["actions"]:
+                if action["harness"] == h:
+                    results.append({
+                        "harness": h,
+                        "skill": action["skill"],
+                        "action": action["action"],
+                        "status": "skipped-harness-absent",
+                        "targetDirectory": str(Path(action["targetDirectory"])),
+                        "backupDirectory": None,
+                    })
+            continue
         installed_root_path.mkdir(parents=True, exist_ok=True)
         harness_backup_base = (backup_root or backup_root_for_harness(h)) / applied_at
 
@@ -385,6 +398,7 @@ def _summarize_results(results: List[Dict[str, Any]], plan_summary: Dict[str, in
         "applied": sum(1 for r in results if r["status"] == "applied"),
         "blocked": sum(1 for r in results if r["status"] == "blocked"),
         "unchanged": sum(1 for r in results if r["status"] == "unchanged"),
+        "skippedHarnessAbsent": sum(1 for r in results if r["status"] == "skipped-harness-absent"),
     })
     return summary
 
