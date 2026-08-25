@@ -109,6 +109,22 @@ Often that will map to separate PRs, but not always. A review unit can also be:
 
 The runtime should support staged validation even when the project lands as one PR.
 
+### Step Kinds and RTK Mediation
+
+The first concrete step kinds should include at minimum:
+
+- `agent`: invokes a harness (e.g. Codex) to execute the step
+- `shell`: runs a local shell command
+- `review`: pauses for human approval before continuing
+- `checkpoint`: marks a stage boundary without doing execution work
+
+For `agent` steps, any harness that supports RTK (currently Codex) **must** be launched through `rtk` rather than directly. This is the primary cost-reduction mechanism — RTK filters noisy tool output before it reaches the model, reducing token consumption.
+
+- `orch run` should check for `rtk` on `PATH` before executing an agent step against an RTK-required harness
+- missing RTK should surface as a setup warning, not a silent bypass
+- the run record should log whether RTK was active, bypassed, or unavailable for each agent step
+- RTK-exempt harnesses (e.g. Copilot in the current runtime) should document why they are exempt
+
 ### Skills Boundary
 
 Skills are execution helpers, not the plan itself.
@@ -187,3 +203,5 @@ An implementer can build staged execution that remains inspectable and reviewabl
 
 - Implement run-state structures and transitions in `ai_stack/`.
 - Choose the first concrete step kinds for the initial workflow.
+- Implement `orch run` with RTK mediation for `agent` steps.
+- Add RTK availability check before launching agent steps against RTK-required harnesses.

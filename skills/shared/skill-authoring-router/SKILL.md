@@ -19,7 +19,7 @@ Use `skill-creator` for the actual skill design and editing once routing is sett
 4. Otherwise, treat the request as defaulting to the configured `repos.aiStack` checkout.
 5. If `repos.aiStack` is missing, invalid, or unavailable, ask one narrow question instead of guessing.
 6. Once the target repo is established:
-   - For skill work: perform the work in that repo's `skills/` tree, then hand off to `skill-creator`.
+   - For skill work: perform the work in that repo's `skills/` tree, then hand off to `skill-creator`. After edits are complete, run `ai sync-skills --apply` from the ai-stack root to sync to all configured harnesses.
    - For global instructions: edit `global-agent-instructions/shared.md` directly, then run `ai sync-global-instructions --apply` to push to harness targets.
 
 ## Trigger examples
