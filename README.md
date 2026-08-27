@@ -44,6 +44,8 @@ brew install rtk-ai/tap/rtk
 curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
 ```
 
+Register `rtk` hook to enable automatic savings: `rtk init -g`
+
 `ai-stack` expects supported harness binaries and `rtk` to already be available on `PATH`.
 
 ## Quick Start
